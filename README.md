@@ -39,20 +39,27 @@ This demo shows OpenHands doing exactly that.
 
 ## Quick Start
 
-### With Claude Code (full demo)
-
-```bash
-export LLM_API_KEY="your-api-key"           # For OpenHands agents
-export ANTHROPIC_API_KEY="your-anthropic-key" # For Claude Code
-python demo.py
-```
-
-### Without Claude Code (OpenHands-only delegation)
+### Run locally (in-process on your machine)
 
 ```bash
 export LLM_API_KEY="your-api-key"
-python demo.py --no-claude
+export ANTHROPIC_API_KEY="your-anthropic-key"  # optional, for Claude Code
+
+python demo.py --no-claude        # OpenHands agents only
+python demo.py                    # Full demo with Claude Code (ACP)
 ```
+
+### Run on OpenHands Cloud ☁️ (conversations visible in Cloud UI)
+
+```bash
+export LLM_API_KEY="your-anthropic-key"
+export OPENHANDS_CLOUD_API_KEY="your-cloud-api-key"  # from app.all-hands.dev → Settings → API Keys
+
+python demo.py --cloud --no-claude   # OpenHands agents on Cloud
+python demo.py --cloud               # Claude Code + OpenHands on Cloud
+```
+
+Conversations run via `--cloud` will appear in your [OpenHands Cloud dashboard](https://app.all-hands.dev).
 
 ### Choose a task
 
@@ -109,7 +116,8 @@ AI-assisted development workflow:
 ## Requirements
 
 ```bash
-pip install openhands-sdk openhands-tools
+pip install openhands-sdk openhands-tools openhands-workspace
 ```
 
 Node.js 18+ required for Claude Code ACP server (`npx`).
+`openhands-workspace` is only needed for `--cloud` mode.

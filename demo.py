@@ -35,6 +35,7 @@ Usage:
 import argparse
 import os
 import sys
+import time
 
 from pydantic import SecretStr
 
@@ -61,6 +62,12 @@ def parse_args():
         "--no-claude",
         action="store_true",
         help="Skip Claude Code harness (use OpenHands agents only)",
+    )
+    parser.add_argument(
+        "--cloud",
+        action="store_true",
+        help="Run on OpenHands Cloud (requires OPENHANDS_CLOUD_API_KEY). "
+             "Conversations will appear in the Cloud UI.",
     )
     parser.add_argument(
         "--task",
@@ -101,8 +108,48 @@ TASKS = {
 
 # ── Harness setup ────────────────────────────────────────────────────
 
+def setup_cloud_workspace():
+    """Set up OpenHandsCloudWorkspace. Returns (workspace, llm) or exits."""
+    from openhands.workspace import OpenHandsCloudWorkspace
+
+    cloud_api_key = os.getenv("OPENHANDS_CLOUD_API_KEY")
+    if not cloud_api_key:
+        print("ERROR: OPENHANDS_CLOUD_API_KEY is required for --cloud mode.")
+        print("  1. Go to https://app.all-hands.dev → Settings → API Keys")
+        print("  2. Create a key and export it:")
+        print("     export OPENHANDS_CLOUD_API_KEY='your-key'")
+        sys.exit(1)
+
+    cloud_url = os.getenv("OPENHANDS_CLOUD_API_URL", "https://app.all-hands.dev")
+    print(f"  ☁️  Connecting to OpenHands Cloud: {cloud_url}")
+
+    workspace = OpenHandsCloudWorkspace(
+        cloud_api_url=cloud_url,
+        cloud_api_key=cloud_api_key,
+        keep_alive=True,  # Keep sandbox alive so you can inspect in Cloud UI
+    )
+    workspace.__enter__()
+
+    # Try to inherit LLM from your Cloud account settings
+    api_key = os.getenv("LLM_API_KEY")
+    if api_key:
+        llm = LLM(
+            model=os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
+            api_key=SecretStr(api_key),
+            base_url=os.getenv("LLM_BASE_URL", None),
+            usage_id="orchestrator-demo",
+            drop_params=True,
+        )
+    else:
+        print("  ☁️  Inheriting LLM config from your Cloud account...")
+        llm = workspace.get_llm()
+
+    print(f"  ☁️  Cloud sandbox ready — model: {llm.model}")
+    return workspace, llm
+
+
 def setup_llm() -> LLM:
-    """Configure the LLM for OpenHands agents."""
+    """Configure the LLM for OpenHands agents (local mode)."""
     api_key = os.getenv("LLM_API_KEY")
     if not api_key:
         print("ERROR: LLM_API_KEY environment variable is required.")
@@ -175,8 +222,14 @@ def run_demo(args):
     print("  OpenHands as the enterprise agent control plane")
     print("=" * 70)
 
-    # 1. Configure LLM
-    llm = setup_llm()
+    # 1. Configure workspace + LLM
+    workspace = None
+    if args.cloud:
+        print("\n☁️  Cloud mode — conversations will appear in OpenHands Cloud UI")
+        workspace, llm = setup_cloud_workspace()
+    else:
+        print("\n💻 Local mode — running in-process on this machine")
+        llm = setup_llm()
 
     # 2. Resolve the task
     if args.task == "custom":
@@ -221,14 +274,20 @@ def run_demo(args):
     # 4. Build the orchestrator
     print("\n🎯 Starting orchestration...\n")
 
-    if claude_agent:
-        # ── Path A: Claude Code writes, OpenHands reviews ────────────
-        # Use ACPAgent directly for implementation, then TaskToolSet for review
-        run_with_claude_code(claude_agent, llm, task_description, project_dir)
-    else:
-        # ── Path B: Pure OpenHands delegation ────────────────────────
-        # Orchestrator delegates to implementer + reviewer via DelegateTool
-        run_with_delegation(llm, task_description, project_dir)
+    # Use cloud workspace if available, otherwise local project dir
+    work_dir = workspace if workspace else project_dir
+
+    try:
+        if claude_agent:
+            # ── Path A: Claude Code writes, OpenHands reviews ────────────
+            run_with_claude_code(claude_agent, llm, task_description, work_dir)
+        else:
+            # ── Path B: Pure OpenHands delegation ────────────────────────
+            run_with_delegation(llm, task_description, work_dir)
+    finally:
+        if workspace:
+            print("\n☁️  Cloud sandbox kept alive — check OpenHands Cloud UI for conversations")
+            workspace.__exit__(None, None, None)
 
 
 def run_with_claude_code(claude_agent: ACPAgent, llm: LLM, task: str, workspace: str):
