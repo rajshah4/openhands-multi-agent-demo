@@ -71,23 +71,35 @@ python demo.py --task custom --custom-task "Build a rate limiter class"
 
 ## How It Works
 
-### Path A: Claude Code + OpenHands (full demo)
+### `demo.py` — SDK-based orchestration (local or cloud sandbox)
 
-1. **Phase 1** — Claude Code (via ACP protocol) implements the feature
-2. **Phase 2** — OpenHands code-reviewer agent reviews the implementation
-3. **Result** — Two different agent harnesses collaborated on one task
+Uses the OpenHands SDK to orchestrate agents in-process:
 
-### Path B: Pure OpenHands delegation (fallback)
+| Path | Implementation | Review | How |
+|------|---------------|--------|-----|
+| **Path A** (Claude Code) | Claude Code via ACP | File-based reviewer | `ACPAgent` + `TaskToolSet` |
+| **Path B** (OpenHands-only) | Implementer sub-agent | File-based reviewer | `DelegateTool` |
 
-1. **Orchestrator** delegates to an `implementer` sub-agent (writes code)
-2. **Orchestrator** delegates to a `code-reviewer` sub-agent (reviews code)
-3. **Orchestrator** synthesizes findings and requests fixes if needed
+### `demo_cloud.py` — Cloud-native orchestration (each step = a conversation)
+
+Each agent harness runs as **its own Cloud conversation**, fully visible in the UI:
+
+```
+Your Laptop (orchestrator)
+│
+├─► ☁️ Conversation 1: Implement  →  visible at app.all-hands.dev
+├─► ☁️ Conversation 2: Review     →  visible at app.all-hands.dev
+└─► ☁️ Conversation 3: Fix        →  visible at app.all-hands.dev
+```
+
+This is the **enterprise pattern** — every step is auditable, observable, and independently trackable.
 
 ## File Structure
 
 ```
 .
-├── demo.py                          # Main orchestration script
+├── demo.py                          # SDK-based orchestration (local/cloud sandbox)
+├── demo_cloud.py                    # Cloud-native orchestration (sub-conversations)
 ├── .agents/
 │   └── agents/
 │       └── code-reviewer.md         # File-based reviewer agent (no Python!)
