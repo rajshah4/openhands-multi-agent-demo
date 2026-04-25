@@ -1,35 +1,25 @@
 #!/usr/bin/env python3
 """
-Multi-Agent Orchestration Demo
-===============================
+Multi-Harness Orchestration Demo
+==================================
 
-Demonstrates OpenHands as an orchestration layer that delegates work to
-multiple agent harnesses — including external ones like Claude Code (ACP).
+Starts an OpenHands Cloud conversation that runs the multi-agent
+pipeline INSIDE the sandbox — using real ACP for Claude Code.
 
-Enterprise value proposition:
-  OpenHands isn't just one agent — it's the control plane that can spawn,
-  delegate to, and coordinate ANY agent harness your org uses.
+What happens:
+  1. Cloud API creates a conversation + sandbox
+  2. The OH agent inside the sandbox installs deps + Claude Code ACP
+  3. Runs pipeline.py which uses ACPAgent (real ACP protocol) for Claude Code
+  4. OpenHands agents handle review and fix
 
-Architecture:
-  ┌─────────────────────────────────────────────────┐
-  │              Orchestrator (OpenHands)            │
-  │                                                 │
-  │  ┌───────────┐  ┌────────────┐  ┌────────────┐ │
-  │  │ Claude    │  │ File-Based │  │ Built-in   │ │
-  │  │ Code      │  │ Reviewer   │  │ Bash       │ │
-  │  │ (ACP)     │  │ (.md)      │  │ Runner     │ │
-  │  └───────────┘  └────────────┘  └────────────┘ │
-  └─────────────────────────────────────────────────┘
+The entire pipeline — including real ACP communication — runs inside
+the Cloud sandbox and is visible in the Cloud UI.
 
 Usage:
-  # With Claude Code (requires ANTHROPIC_API_KEY):
-  export LLM_API_KEY="your-key"
-  export ANTHROPIC_API_KEY="your-anthropic-key"
+  export OPENHANDS_CLOUD_API_KEY="your-cloud-api-key"
   python demo.py
-
-  # Without Claude Code (uses OpenHands agents only):
-  export LLM_API_KEY="your-key"
-  python demo.py --no-claude
+  python demo.py --task csv-tool
+  python demo.py --repo youruser/yourrepo
 """
 
 import argparse
@@ -37,43 +27,21 @@ import os
 import sys
 import time
 
-from pydantic import SecretStr
+import requests
 
-from openhands.sdk import (
-    LLM,
-    Agent,
-    AgentContext,
-    Conversation,
-    Tool,
-)
-from openhands.sdk.context import Skill
-from openhands.sdk.agent import ACPAgent
-from openhands.sdk.subagent import register_agent, register_file_agents
-from openhands.tools.delegate import DelegateTool, DelegationVisualizer
-from openhands.tools.preset.default import register_builtins_agents
-from openhands.tools.task import TaskToolSet
+CLOUD_BASE = "https://app.all-hands.dev"
+API_V1 = f"{CLOUD_BASE}/api/v1/app-conversations"
 
-
-# ── CLI ──────────────────────────────────────────────────────────────
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Multi-Agent Orchestration Demo")
-    parser.add_argument(
-        "--no-claude",
-        action="store_true",
-        help="Skip Claude Code harness (use OpenHands agents only)",
-    )
-    parser.add_argument(
-        "--cloud",
-        action="store_true",
-        help="Run on OpenHands Cloud (requires OPENHANDS_CLOUD_API_KEY). "
-             "Conversations will appear in the Cloud UI.",
+    parser = argparse.ArgumentParser(
+        description="Cloud-native multi-harness demo using ACP"
     )
     parser.add_argument(
         "--task",
         default="url-shortener",
         choices=["url-shortener", "csv-tool", "custom"],
-        help="Which demo task to run",
+        help="Which demo task to run (default: url-shortener)",
     )
     parser.add_argument(
         "--custom-task",
@@ -81,312 +49,185 @@ def parse_args():
         default=None,
         help="Custom task description (use with --task custom)",
     )
+    parser.add_argument(
+        "--repo",
+        type=str,
+        default="rajshah4/openhands-multi-agent-demo",
+        help="GitHub repo for the conversation",
+    )
+    parser.add_argument(
+        "--no-claude",
+        action="store_true",
+        help="Skip Claude Code — use OpenHands agents only (no ACP)",
+    )
     return parser.parse_args()
 
 
-# ── Task definitions ─────────────────────────────────────────────────
-
-TASKS = {
-    "url-shortener": (
-        "Create a Python module called `shortener.py` that implements a simple "
-        "in-memory URL shortener with these functions:\n"
-        "  - `shorten(url: str) -> str` — returns a short code\n"
-        "  - `resolve(code: str) -> str | None` — returns the original URL\n"
-        "  - `stats() -> dict` — returns mapping of code → hit count\n"
-        "Include a `if __name__ == '__main__'` block that demos all three functions."
-    ),
-    "csv-tool": (
-        "Create a Python CLI tool called `csv2json.py` that:\n"
-        "  - Reads a CSV file from a path argument\n"
-        "  - Converts it to a list of dicts\n"
-        "  - Writes pretty-printed JSON to stdout or an output file\n"
-        "  - Handles missing files and malformed CSV gracefully\n"
-        "Include argparse with --output and --indent options."
-    ),
-}
-
-
-# ── Harness setup ────────────────────────────────────────────────────
-
-def setup_cloud_workspace():
-    """Set up OpenHandsCloudWorkspace. Returns (workspace, llm) or exits."""
-    from openhands.workspace import OpenHandsCloudWorkspace
-
-    cloud_api_key = os.getenv("OPENHANDS_CLOUD_API_KEY")
-    if not cloud_api_key:
-        print("ERROR: OPENHANDS_CLOUD_API_KEY is required for --cloud mode.")
-        print("  1. Go to https://app.all-hands.dev → Settings → API Keys")
+def get_headers():
+    api_key = os.getenv("OPENHANDS_CLOUD_API_KEY")
+    if not api_key:
+        print("ERROR: OPENHANDS_CLOUD_API_KEY is required.")
+        print("  1. Go to https://app.all-hands.dev -> Settings -> API Keys")
         print("  2. Create a key and export it:")
         print("     export OPENHANDS_CLOUD_API_KEY='your-key'")
         sys.exit(1)
-
-    cloud_url = os.getenv("OPENHANDS_CLOUD_API_URL", "https://app.all-hands.dev")
-    print(f"  ☁️  Connecting to OpenHands Cloud: {cloud_url}")
-
-    workspace = OpenHandsCloudWorkspace(
-        cloud_api_url=cloud_url,
-        cloud_api_key=cloud_api_key,
-        keep_alive=True,  # Keep sandbox alive so you can inspect in Cloud UI
-    )
-    workspace.__enter__()
-
-    # Try to inherit LLM from your Cloud account settings
-    api_key = os.getenv("LLM_API_KEY")
-    if api_key:
-        llm = LLM(
-            model=os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
-            api_key=SecretStr(api_key),
-            base_url=os.getenv("LLM_BASE_URL", None),
-            usage_id="orchestrator-demo",
-            drop_params=True,
-        )
-    else:
-        print("  ☁️  Inheriting LLM config from your Cloud account...")
-        llm = workspace.get_llm()
-
-    print(f"  ☁️  Cloud sandbox ready — model: {llm.model}")
-    return workspace, llm
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
 
 
-def setup_llm() -> LLM:
-    """Configure the LLM for OpenHands agents (local mode)."""
-    api_key = os.getenv("LLM_API_KEY")
-    if not api_key:
-        print("ERROR: LLM_API_KEY environment variable is required.")
-        print("  export LLM_API_KEY='your-api-key'")
-        sys.exit(1)
-
-    return LLM(
-        model=os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5-20250929"),
-        api_key=SecretStr(api_key),
-        base_url=os.getenv("LLM_BASE_URL", None),
-        usage_id="orchestrator-demo",
-        drop_params=True,
-    )
-
-
-def setup_claude_code_agent() -> ACPAgent | None:
-    """Set up Claude Code as an ACP harness. Returns None if unavailable."""
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
-    if not anthropic_key:
-        return None
-
-    print("  ✓ Claude Code (ACP) — spawning via npx...")
-    return ACPAgent(
-        acp_command=["npx", "-y", "@agentclientprotocol/claude-agent-acp"],
-        acp_env={
-            "ANTHROPIC_API_KEY": anthropic_key,
-            # If you use a proxy / LiteLLM, set ANTHROPIC_BASE_URL too
+def start_conversation(headers, task, repo):
+    """Start a Cloud conversation and return its ID."""
+    print("  🚀 Starting Cloud conversation...")
+    resp = requests.post(API_V1, headers=headers, json={
+        "initial_message": {
+            "content": [{"type": "text", "text": task}],
         },
-    )
+        "selected_repository": repo,
+    })
+    resp.raise_for_status()
+    task_id = resp.json()["id"]
 
-
-def register_implementer_agent(llm: LLM):
-    """Register a fallback implementer agent (used when Claude Code is unavailable)."""
-    def factory(llm: LLM) -> Agent:
-        return Agent(
-            llm=llm,
-            tools=[
-                Tool(name="file_editor"),
-                Tool(name="terminal"),
-            ],
-            agent_context=AgentContext(
-                skills=[
-                    Skill(
-                        name="implementer",
-                        content=(
-                            "You are a senior software engineer. Write clean, "
-                            "well-structured Python code. Include error handling, "
-                            "type hints, and a brief module docstring. "
-                            "Create the file(s) in the current working directory."
-                        ),
-                        trigger=None,
-                    )
-                ],
-                system_message_suffix="Write production-quality code. Be concise.",
-            ),
+    # Poll until sandbox is ready
+    for _ in range(60):
+        status_resp = requests.get(
+            f"{API_V1}/start-tasks",
+            headers=headers,
+            params={"ids": task_id},
         )
+        status_resp.raise_for_status()
+        tasks = status_resp.json()
 
-    register_agent(
-        name="implementer",
-        factory_func=factory,
-        description="Writes clean Python implementations from specifications.",
-    )
+        if tasks and tasks[0].get("status") == "READY":
+            return tasks[0]["app_conversation_id"]
+        elif tasks and tasks[0].get("status") == "ERROR":
+            print(f"    ❌ Failed: {tasks[0].get('error', 'Unknown')}")
+            sys.exit(1)
+
+        status = tasks[0].get("status", "unknown") if tasks else "waiting"
+        print(f"    ⏳ {status}...")
+        time.sleep(5)
+
+    print("    ❌ Timeout waiting for sandbox")
+    sys.exit(1)
 
 
-# ── Demo runner ──────────────────────────────────────────────────────
+def wait_for_completion(headers, conversation_id):
+    """Poll until the conversation finishes."""
+    last_status = None
+    for _ in range(120):
+        resp = requests.get(API_V1, headers=headers, params={"ids": conversation_id})
+        resp.raise_for_status()
+        conversations = resp.json()
 
-def run_demo(args):
-    print("=" * 70)
-    print("  Multi-Agent Orchestration Demo")
-    print("  OpenHands as the enterprise agent control plane")
-    print("=" * 70)
+        if not conversations:
+            time.sleep(15)
+            continue
 
-    # 1. Configure workspace + LLM
-    workspace = None
-    if args.cloud:
-        print("\n☁️  Cloud mode — conversations will appear in OpenHands Cloud UI")
-        workspace, llm = setup_cloud_workspace()
-    else:
-        print("\n💻 Local mode — running in-process on this machine")
-        llm = setup_llm()
+        conv = conversations[0]
+        sandbox_status = conv.get("sandbox_status")
+        exec_status = conv.get("execution_status")
 
-    # 2. Resolve the task
+        if sandbox_status in ("ERROR", "MISSING"):
+            return "error"
+
+        if exec_status in ("finished", "error", "stuck"):
+            return exec_status
+
+        if exec_status == "waiting_for_confirmation":
+            print("    ⚠️  Agent needs confirmation — check the Cloud UI")
+            return "waiting_for_confirmation"
+
+        if exec_status != last_status:
+            print(f"    🔄 {exec_status or 'starting'}...")
+            last_status = exec_status
+
+        time.sleep(15)
+
+    return "timeout"
+
+
+def build_task_prompt(args):
+    """Build the prompt that the Cloud agent will execute."""
+
     if args.task == "custom":
         if not args.custom_task:
-            print("ERROR: --custom-task is required when --task=custom")
+            print("ERROR: --custom-task required with --task=custom")
             sys.exit(1)
-        task_description = args.custom_task
+        task_flag = f'--task custom --custom-task "{args.custom_task}"'
     else:
-        task_description = TASKS[args.task]
+        task_flag = f"--task {args.task}"
 
-    print(f"\n📋 Task: {args.task}")
-    print(f"   {task_description[:80]}...\n")
-
-    # 3. Set up agent harnesses
-    print("🔧 Registering agent harnesses:")
-
-    # Harness A: Claude Code (ACP) or fallback implementer
-    claude_agent = None
-    use_claude = not args.no_claude
-
-    if use_claude:
-        claude_agent = setup_claude_code_agent()
-
-    if claude_agent:
-        implementer_label = "Claude Code (ACP)"
+    if args.no_claude:
+        pipeline_cmd = f"python pipeline.py --no-claude {task_flag}"
+        harness_desc = "OpenHands agents only (no ACP)"
     else:
-        if use_claude:
-            print("  ⚠ ANTHROPIC_API_KEY not set — falling back to OpenHands implementer")
-        register_implementer_agent(llm)
-        implementer_label = "OpenHands Implementer"
-    print(f"  ✓ {implementer_label}")
+        pipeline_cmd = f"python pipeline.py {task_flag}"
+        harness_desc = "Claude Code (ACP) + OpenHands"
 
-    # Harness B: File-based code reviewer (.agents/agents/code-reviewer.md)
-    project_dir = os.path.dirname(os.path.abspath(__file__))
-    registered = register_file_agents(project_dir)
-    print(f"  ✓ File-based agents: {registered}")
+    prompt = f"""Run the multi-agent orchestration pipeline from this repo.
 
-    # Harness C: Built-in agents (bash-runner, code-explorer, etc.)
-    register_builtins_agents(enable_browser=False)
-    print("  ✓ Built-in agents (bash-runner, code-explorer, general-purpose)")
+This pipeline uses multiple agent harnesses: {harness_desc}.
 
-    # 4. Build the orchestrator
-    print("\n🎯 Starting orchestration...\n")
+Steps:
+1. Install the OpenHands SDK and tools:
+   pip install openhands-sdk openhands-tools
 
-    # Use cloud workspace if available, otherwise local project dir
-    work_dir = workspace if workspace else project_dir
+2. Install Node.js dependencies for Claude Code ACP server:
+   npm install -g @agentclientprotocol/claude-agent-acp
 
-    try:
-        if claude_agent:
-            # ── Path A: Claude Code writes, OpenHands reviews ────────────
-            run_with_claude_code(claude_agent, llm, task_description, work_dir)
-        else:
-            # ── Path B: Pure OpenHands delegation ────────────────────────
-            run_with_delegation(llm, task_description, work_dir)
-    finally:
-        if workspace:
-            print("\n☁️  Cloud sandbox kept alive — check OpenHands Cloud UI for conversations")
-            workspace.__exit__(None, None, None)
+3. Set up environment variables:
+   - ANTHROPIC_API_KEY should already be available as a secret
+   - Set LLM_API_KEY=$ANTHROPIC_API_KEY
+   - Set LLM_MODEL=anthropic/claude-sonnet-4-5-20250929
 
+4. Run the pipeline:
+   {pipeline_cmd}
 
-def run_with_claude_code(claude_agent: ACPAgent, llm: LLM, task: str, workspace: str):
-    """
-    Path A: Claude Code implements, then OpenHands reviews.
-    Shows ACPAgent + TaskToolSet working together.
-    """
-    print("─" * 70)
-    print("  PHASE 1: Claude Code (ACP) → Implementation")
-    print("─" * 70)
+5. After the pipeline completes, show me:
+   - What files were created
+   - The review findings (if any)
+   - The total cost
 
-    try:
-        # Claude Code implements the task
-        cc_conversation = Conversation(agent=claude_agent, workspace=workspace)
-        cc_conversation.send_message(
-            f"Please implement the following:\n\n{task}\n\n"
-            "Create the file(s) in the current working directory."
-        )
-        cc_conversation.run()
+IMPORTANT: pipeline.py uses ACPAgent which spawns Claude Code via the
+Agent Client Protocol. This is a real ACP integration, not just a CLI
+wrapper. Let the script run to completion — it manages its own sub-agents
+internally."""
 
-        cc_cost = claude_agent.llm.metrics.accumulated_cost
-        print(f"\n  💰 Claude Code cost: ${cc_cost:.4f}")
-
-    finally:
-        claude_agent.close()
-
-    print()
-    print("─" * 70)
-    print("  PHASE 2: OpenHands Code Reviewer → Review")
-    print("─" * 70)
-
-    # Now use OpenHands orchestrator with TaskToolSet to review
-    orchestrator = Agent(
-        llm=llm,
-        tools=[Tool(name=TaskToolSet.name)],
-    )
-    review_conversation = Conversation(
-        agent=orchestrator,
-        workspace=workspace,
-        visualizer=DelegationVisualizer(name="Orchestrator"),
-    )
-    review_conversation.send_message(
-        "Use the task tool to delegate to the 'code-reviewer' sub-agent. "
-        "Ask it to review all .py files in the current directory that were "
-        "just created. It should provide a structured code review with "
-        "severity rating and actionable findings."
-    )
-    review_conversation.run()
-
-    review_cost = review_conversation.conversation_stats.get_combined_metrics().accumulated_cost
-    print(f"\n  💰 Review cost: ${review_cost:.4f}")
-    print(f"  💰 Total cost:  ${cc_cost + review_cost:.4f}")
-
-    print("\n" + "=" * 70)
-    print("  ✅ Demo complete — Claude Code wrote it, OpenHands reviewed it")
-    print("=" * 70)
+    return prompt, harness_desc
 
 
-def run_with_delegation(llm: LLM, task: str, workspace: str):
-    """
-    Path B: Pure OpenHands multi-agent delegation.
-    Shows DelegateTool spawning implementer + reviewer in parallel.
-    """
-    orchestrator = Agent(
-        llm=llm,
-        tools=[Tool(name=DelegateTool.name)],
-    )
-    conversation = Conversation(
-        agent=orchestrator,
-        workspace=workspace,
-        visualizer=DelegationVisualizer(name="Orchestrator"),
-    )
+def main():
+    args = parse_args()
+    headers = get_headers()
 
-    conversation.send_message(
-        f"I need you to coordinate two sub-agents to complete this task:\n\n"
-        f"**Task:** {task}\n\n"
-        f"**Step 1 — Implement:** Spawn an 'implementer' sub-agent and delegate "
-        f"the implementation task above. It should create the file(s) in the "
-        f"current working directory.\n\n"
-        f"**Step 2 — Review:** After implementation is done, spawn a 'code-reviewer' "
-        f"sub-agent and ask it to review all .py files just created. It should "
-        f"provide a structured review with severity and findings.\n\n"
-        f"**Step 3 — Report:** Summarize what was built and the review findings. "
-        f"If the review found MAJOR or CRITICAL issues, ask the implementer to "
-        f"fix them.\n\n"
-        f"Use the delegate tool to coordinate these agents."
-    )
-    conversation.run()
+    print("=" * 60)
+    print("  ☁️  Cloud Multi-Harness Demo (ACP)")
+    print("=" * 60)
 
-    cost = conversation.conversation_stats.get_combined_metrics().accumulated_cost
-    print(f"\n  💰 Total cost: ${cost:.4f}")
+    prompt, harness_desc = build_task_prompt(args)
 
-    print("\n" + "=" * 70)
-    print("  ✅ Demo complete — OpenHands orchestrated implement → review")
-    print("=" * 70)
+    print(f"\n  📋 Task: {args.task}")
+    print(f"  📦 Repo: {args.repo}")
+    print(f"  🔧 Harnesses: {harness_desc}")
 
+    conversation_id = start_conversation(headers, prompt, args.repo)
+    url = f"{CLOUD_BASE}/conversations/{conversation_id}"
 
-# ── Main ─────────────────────────────────────────────────────────────
+    print(f"\n  ☁️  Conversation: {url}")
+    print(f"\n  ⏳ Agent is running the multi-harness pipeline...")
+    print(f"     (Claude Code via ACP + OpenHands review)")
+    print(f"     Watch live at: {url}\n")
+
+    status = wait_for_completion(headers, conversation_id)
+    status_icon = {"finished": "✅", "error": "❌", "stuck": "🔒"}.get(status, "⚠️")
+
+    print(f"\n{'=' * 60}")
+    print(f"  {status_icon} Pipeline {status}")
+    print(f"  ☁️  {url}")
+    print(f"{'=' * 60}")
+
 
 if __name__ == "__main__":
-    args = parse_args()
-    run_demo(args)
+    main()
