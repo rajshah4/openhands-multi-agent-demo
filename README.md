@@ -1,135 +1,130 @@
 # Multi-Agent Orchestration Demo
 
-> **OpenHands as the enterprise agent control plane** — orchestrate ANY agent harness
-> from a single platform.
+> **Claude Code (ACP) + OpenHands** — multiple agent harnesses orchestrated
+> from one platform, running on OpenHands Cloud.
 
-## The Idea
+## What This Does
 
-Enterprises don't want to be locked into a single AI coding agent. They want to:
+OpenHands orchestrates **different AI coding agents** working together on one task:
 
-- Run **Claude Code** for implementation tasks
-- Use **custom reviewers** defined as simple Markdown files
-- Leverage **built-in agents** for exploration and testing
-- Orchestrate all of them from **one control plane**
+| Step | Harness | Protocol | What happens |
+|------|---------|----------|--------------|
+| **Implement** | **Claude Code** | ACP (Agent Client Protocol) | Claude Code writes the code via real ACP |
+| **Review** | **OpenHands** | SDK delegation | File-based reviewer agent finds issues |
+| **Fix** | **OpenHands** | SDK delegation | Implementer fixes MAJOR/CRITICAL findings |
 
-This demo shows OpenHands doing exactly that.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│              Orchestrator (OpenHands)            │
-│                                                 │
-│  ┌───────────┐  ┌────────────┐  ┌────────────┐ │
-│  │ Claude    │  │ File-Based │  │ Built-in   │ │
-│  │ Code      │  │ Reviewer   │  │ Bash       │ │
-│  │ (ACP)     │  │ (.md)      │  │ Runner     │ │
-│  └───────────┘  └────────────┘  └────────────┘ │
-└─────────────────────────────────────────────────┘
-```
-
-### Agent Harnesses Used
-
-| Harness | Type | How It's Defined |
-|---------|------|------------------|
-| **Claude Code** | ACPAgent (external) | `ACPAgent(acp_command=["npx", "-y", "@agentclientprotocol/claude-agent-acp"])` |
-| **Code Reviewer** | File-based agent | `.agents/agents/code-reviewer.md` — a Markdown file, no Python needed |
-| **Bash Runner** | Built-in agent | Ships with `openhands-tools`, registered via `register_builtins_agents()` |
-| **Implementer** | Programmatic agent | Python factory function with `register_agent()` (fallback when Claude Code unavailable) |
+This proves OpenHands can be the **orchestration layer** for any agent harness —
+not just its own agents.
 
 ## Quick Start
 
-### Run locally (in-process on your machine)
+### Prerequisites
+
+1. **OpenHands Cloud API Key** — [app.all-hands.dev](https://app.all-hands.dev) → Settings → API Keys
+2. **Anthropic API Key** — [console.anthropic.com](https://console.anthropic.com)
+   - Add as a secret in OpenHands Cloud: Settings → Secrets → `ANTHROPIC_API_KEY`
+
+### Run on OpenHands Cloud (recommended)
 
 ```bash
-export LLM_API_KEY="your-api-key"
-export ANTHROPIC_API_KEY="your-anthropic-key"  # optional, for Claude Code
+git clone https://github.com/rajshah4/openhands-multi-agent-demo.git
+cd openhands-multi-agent-demo
 
-python demo.py --no-claude        # OpenHands agents only
-python demo.py                    # Full demo with Claude Code (ACP)
+pip install requests
+
+export OPENHANDS_CLOUD_API_KEY="your-cloud-api-key"
+
+# Claude Code (ACP) implements, OpenHands reviews — all in the Cloud
+python demo_cloud.py
+
+# Watch it live at the URL printed in the output
 ```
 
-### Run on OpenHands Cloud ☁️ (conversations visible in Cloud UI)
+This starts a Cloud conversation that runs `demo.py` inside the sandbox.
+Claude Code runs via **real ACP** inside the sandbox, and the entire
+pipeline is visible in the Cloud UI.
+
+### Run locally
 
 ```bash
+pip install openhands-sdk openhands-tools
+
 export LLM_API_KEY="your-anthropic-key"
-export OPENHANDS_CLOUD_API_KEY="your-cloud-api-key"  # from app.all-hands.dev → Settings → API Keys
+export ANTHROPIC_API_KEY="your-anthropic-key"
 
-python demo.py --cloud --no-claude   # OpenHands agents on Cloud
-python demo.py --cloud               # Claude Code + OpenHands on Cloud
+# Full demo: Claude Code (ACP) writes, OpenHands reviews
+python demo.py
+
+# OpenHands agents only (no ACP, no Claude Code)
+python demo.py --no-claude
 ```
 
-Conversations run via `--cloud` will appear in your [OpenHands Cloud dashboard](https://app.all-hands.dev).
-
-### Choose a task
+### Options
 
 ```bash
-python demo.py --task url-shortener   # default
-python demo.py --task csv-tool
-python demo.py --task custom --custom-task "Build a rate limiter class"
+# Choose a task
+python demo_cloud.py --task url-shortener     # default
+python demo_cloud.py --task csv-tool
+python demo_cloud.py --task custom --custom-task "Build a rate limiter"
+
+# Point at your own repo
+python demo_cloud.py --repo youruser/yourrepo
+
+# Skip Claude Code (OpenHands only)
+python demo_cloud.py --no-claude
 ```
 
-## How It Works
+## Architecture
 
-### `demo.py` — SDK-based orchestration (local or cloud sandbox)
-
-Uses the OpenHands SDK to orchestrate agents in-process:
-
-| Path | Implementation | Review | How |
-|------|---------------|--------|-----|
-| **Path A** (Claude Code) | Claude Code via ACP | File-based reviewer | `ACPAgent` + `TaskToolSet` |
-| **Path B** (OpenHands-only) | Implementer sub-agent | File-based reviewer | `DelegateTool` |
-
-### `demo_cloud.py` — Cloud-native orchestration (each step = a conversation)
-
-Each agent harness runs as **its own Cloud conversation**, fully visible in the UI:
+### How ACP works in this demo
 
 ```
-Your Laptop (orchestrator)
+OpenHands Cloud Sandbox
+├── demo.py (orchestrator)
+│   ├── ACPAgent
+│   │   └── spawns claude-agent-acp subprocess
+│   │       └── Claude Code ← real ACP (JSON-RPC 2.0 over stdio)
+│   │           └── writes shortener.py
+│   │
+│   ├── code-reviewer (file-based agent, .md file)
+│   │   └── reviews shortener.py
+│   │
+│   └── implementer (SDK agent)
+│       └── fixes issues from review
 │
-├─► ☁️ Conversation 1: Implement  →  visible at app.all-hands.dev
-├─► ☁️ Conversation 2: Review     →  visible at app.all-hands.dev
-└─► ☁️ Conversation 3: Fix        →  visible at app.all-hands.dev
+└── All visible in Cloud UI at app.all-hands.dev
 ```
 
-This is the **enterprise pattern** — every step is auditable, observable, and independently trackable.
+`ACPAgent` spawns Claude Code as an ACP server subprocess. Communication
+happens via JSON-RPC 2.0 over stdio — the same protocol IDEs use to talk
+to AI agents. This is **real ACP**, not a CLI wrapper.
+
+### Agent harnesses used
+
+| Harness | Type | Definition |
+|---------|------|------------|
+| **Claude Code** | `ACPAgent` | ACP protocol via `@agentclientprotocol/claude-agent-acp` |
+| **Code Reviewer** | File-based agent | `.agents/agents/code-reviewer.md` — Markdown, no Python |
+| **Implementer** | Programmatic agent | Python factory via `register_agent()` |
+| **Built-in agents** | SDK built-ins | `bash-runner`, `code-explorer`, `general-purpose` |
 
 ## File Structure
 
 ```
 .
-├── demo.py                          # SDK-based orchestration (local/cloud sandbox)
-├── demo_cloud.py                    # Cloud-native orchestration (sub-conversations)
+├── demo_cloud.py                    # Starts Cloud conversation running the pipeline
+├── demo.py                          # ACP-based orchestration (runs locally or in sandbox)
 ├── .agents/
 │   └── agents/
-│       └── code-reviewer.md         # File-based reviewer agent (no Python!)
+│       └── code-reviewer.md         # File-based reviewer (no Python needed)
 └── README.md
 ```
 
-## Claude Code Authentication
-
-Claude Code via ACP uses `ANTHROPIC_API_KEY` for API access. Options:
-
-1. **Anthropic API Key** — Get one from [console.anthropic.com](https://console.anthropic.com)
-2. **LiteLLM Proxy** — Set both `ANTHROPIC_API_KEY` and `ANTHROPIC_BASE_URL`
-3. **OAuth (coming)** — Claude Code is adding OAuth/web-based auth for ACP
-
 ## Enterprise Value
 
-This demo proves that OpenHands can be the **orchestration layer** for your entire
-AI-assisted development workflow:
-
-- **Vendor flexibility** — Swap agent harnesses without changing your workflow
-- **Best-of-breed** — Use Claude Code for generation, a custom agent for review
-- **Governance** — All agent actions flow through OpenHands' security/confirmation system
-- **Extensibility** — Add new agents as Markdown files, no deployment needed
-- **Cost tracking** — Unified metrics across all harnesses
-
-## Requirements
-
-```bash
-pip install openhands-sdk openhands-tools openhands-workspace
-```
-
-Node.js 18+ required for Claude Code ACP server (`npx`).
-`openhands-workspace` is only needed for `--cloud` mode.
+- **Multi-harness** — Claude Code writes, OpenHands reviews. Best of both worlds.
+- **Real ACP** — Agent Client Protocol, not CLI shelling. Proper agent-to-agent communication.
+- **Observable** — Full pipeline visible in OpenHands Cloud UI
+- **Vendor-flexible** — Swap Claude Code for Gemini CLI or any ACP-compatible agent
+- **Extensible** — Add new agents as Markdown files, no deployment needed
+- **Governed** — All actions flow through OpenHands security/confirmation system
