@@ -4,32 +4,20 @@ Multi-Agent Orchestration Demo
 ===============================
 
 Demonstrates OpenHands as an orchestration layer that delegates work to
-multiple agent harnesses — including external ones like Claude Code (ACP).
+multiple agent harnesses via ACP (Agent Client Protocol).
 
-Enterprise value proposition:
-  OpenHands isn't just one agent — it's the control plane that can spawn,
-  delegate to, and coordinate ANY agent harness your org uses.
+Pipeline:
+  Claude Code (ACP) → implements the code        [Anthropic]
+  Gemini CLI (ACP)  → writes tests                [Google]
+  OpenHands         → reviews everything          [OpenHands]
 
-Architecture:
-  ┌─────────────────────────────────────────────────┐
-  │              Orchestrator (OpenHands)            │
-  │                                                 │
-  │  ┌───────────┐  ┌────────────┐  ┌────────────┐ │
-  │  │ Claude    │  │ File-Based │  │ Built-in   │ │
-  │  │ Code      │  │ Reviewer   │  │ Bash       │ │
-  │  │ (ACP)     │  │ (.md)      │  │ Runner     │ │
-  │  └───────────┘  └────────────┘  └────────────┘ │
-  └─────────────────────────────────────────────────┘
+Three vendors, two ACP harnesses, one control plane.
 
 Usage:
-  # With Claude Code (requires ANTHROPIC_API_KEY):
   export LLM_API_KEY="your-key"
   export ANTHROPIC_API_KEY="your-anthropic-key"
-  python demo.py
-
-  # Without Claude Code (uses OpenHands agents only):
-  export LLM_API_KEY="your-key"
-  python demo.py --no-claude
+  export GEMINI_API_KEY="your-gemini-key"        # optional
+  python pipeline.py
 """
 
 import argparse
@@ -171,13 +159,23 @@ def setup_claude_code_agent() -> ACPAgent | None:
     if not anthropic_key:
         return None
 
-    print("  ✓ Claude Code (ACP) — spawning via npx...")
+    print("  ✓ Claude Code (ACP) — Anthropic")
     return ACPAgent(
         acp_command=["npx", "-y", "@agentclientprotocol/claude-agent-acp"],
-        acp_env={
-            "ANTHROPIC_API_KEY": anthropic_key,
-            # If you use a proxy / LiteLLM, set ANTHROPIC_BASE_URL too
-        },
+        acp_env={"ANTHROPIC_API_KEY": anthropic_key},
+    )
+
+
+def setup_gemini_agent() -> ACPAgent | None:
+    """Set up Gemini CLI as an ACP harness. Returns None if unavailable."""
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_key:
+        return None
+
+    print("  ✓ Gemini CLI (ACP) — Google")
+    return ACPAgent(
+        acp_command=["gemini", "--acp"],
+        acp_env={"GEMINI_API_KEY": gemini_key},
     )
 
 
@@ -262,12 +260,19 @@ def run_demo(args):
         implementer_label = "OpenHands Implementer"
     print(f"  ✓ {implementer_label}")
 
-    # Harness B: File-based code reviewer (.agents/agents/code-reviewer.md)
+    # Harness B: Gemini CLI (ACP) — writes tests for the implementation
+    gemini_agent = None
+    if use_claude:
+        gemini_agent = setup_gemini_agent()
+        if not gemini_agent:
+            print("  ⚠ GEMINI_API_KEY not set — skipping Gemini test-writer")
+
+    # Harness C: File-based code reviewer (.agents/agents/code-reviewer.md)
     project_dir = os.path.dirname(os.path.abspath(__file__))
     registered = register_file_agents(project_dir)
     print(f"  ✓ File-based agents: {registered}")
 
-    # Harness C: Built-in agents (bash-runner, code-explorer, etc.)
+    # Harness D: Built-in agents (bash-runner, code-explorer, etc.)
     register_builtins_agents(enable_browser=False)
     print("  ✓ Built-in agents (bash-runner, code-explorer, general-purpose)")
 
@@ -279,10 +284,8 @@ def run_demo(args):
 
     try:
         if claude_agent:
-            # ── Path A: Claude Code writes, OpenHands reviews ────────────
-            run_with_claude_code(claude_agent, llm, task_description, work_dir)
+            run_with_acp(claude_agent, gemini_agent, llm, task_description, work_dir)
         else:
-            # ── Path B: Pure OpenHands delegation ────────────────────────
             run_with_delegation(llm, task_description, work_dir)
     finally:
         if workspace:
@@ -290,36 +293,72 @@ def run_demo(args):
             workspace.__exit__(None, None, None)
 
 
-def run_with_claude_code(claude_agent: ACPAgent, llm: LLM, task: str, workspace: str):
+def run_with_acp(
+    claude_agent: ACPAgent,
+    gemini_agent: ACPAgent | None,
+    llm: LLM,
+    task: str,
+    workspace: str,
+):
     """
-    Path A: Claude Code implements, then OpenHands reviews.
-    Shows ACPAgent + TaskToolSet working together.
+    Multi-ACP pipeline: Claude Code implements, Gemini writes tests,
+    OpenHands reviews everything. Three vendors, two ACP harnesses.
     """
+    total_cost = 0.0
+
+    # ── Phase 1: Claude Code (ACP) → Implementation ──────────────────
     print("─" * 70)
-    print("  PHASE 1: Claude Code (ACP) → Implementation")
+    print("  PHASE 1: Claude Code (ACP) → Implementation  [Anthropic]")
     print("─" * 70)
 
     try:
-        # Claude Code implements the task
         cc_conversation = Conversation(agent=claude_agent, workspace=workspace)
         cc_conversation.send_message(
             f"Please implement the following:\n\n{task}\n\n"
             "Create the file(s) in the current working directory."
         )
         cc_conversation.run()
-
         cc_cost = claude_agent.llm.metrics.accumulated_cost
+        total_cost += cc_cost
         print(f"\n  💰 Claude Code cost: ${cc_cost:.4f}")
-
     finally:
         claude_agent.close()
 
+    # ── Phase 2: Gemini CLI (ACP) → Write tests ──────────────────────
+    if gemini_agent:
+        print()
+        print("─" * 70)
+        print("  PHASE 2: Gemini CLI (ACP) → Write Tests  [Google]")
+        print("─" * 70)
+
+        try:
+            gemini_conversation = Conversation(agent=gemini_agent, workspace=workspace)
+            gemini_conversation.send_message(
+                "Look at all the .py files in the current directory that were "
+                "just created. Write comprehensive pytest tests for them in a "
+                "file called `test_<module>.py`. Cover:\n"
+                "  - Happy path for all public functions\n"
+                "  - Edge cases (empty input, invalid input)\n"
+                "  - Error handling\n"
+                "Make sure the tests can run with `pytest`."
+            )
+            gemini_conversation.run()
+            gemini_cost = gemini_agent.llm.metrics.accumulated_cost
+            total_cost += gemini_cost
+            print(f"\n  💰 Gemini CLI cost: ${gemini_cost:.4f}")
+        finally:
+            gemini_agent.close()
+
+        review_phase = "PHASE 3"
+    else:
+        review_phase = "PHASE 2"
+
+    # ── Phase N: OpenHands Code Reviewer → Review ────────────────────
     print()
     print("─" * 70)
-    print("  PHASE 2: OpenHands Code Reviewer → Review")
+    print(f"  {review_phase}: OpenHands Code Reviewer → Review  [OpenHands]")
     print("─" * 70)
 
-    # Now use OpenHands orchestrator with TaskToolSet to review
     orchestrator = Agent(
         llm=llm,
         tools=[Tool(name=TaskToolSet.name)],
@@ -338,11 +377,16 @@ def run_with_claude_code(claude_agent: ACPAgent, llm: LLM, task: str, workspace:
     review_conversation.run()
 
     review_cost = review_conversation.conversation_stats.get_combined_metrics().accumulated_cost
+    total_cost += review_cost
     print(f"\n  💰 Review cost: ${review_cost:.4f}")
-    print(f"  💰 Total cost:  ${cc_cost + review_cost:.4f}")
+    print(f"  💰 Total cost:  ${total_cost:.4f}")
+
+    harnesses_used = "Claude Code (ACP) + OpenHands"
+    if gemini_agent:
+        harnesses_used = "Claude Code (ACP) + Gemini CLI (ACP) + OpenHands"
 
     print("\n" + "=" * 70)
-    print("  ✅ Demo complete — Claude Code wrote it, OpenHands reviewed it")
+    print(f"  ✅ Demo complete — {harnesses_used}")
     print("=" * 70)
 
 

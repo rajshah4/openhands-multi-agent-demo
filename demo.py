@@ -164,7 +164,7 @@ def build_task_prompt(args):
         harness_desc = "OpenHands agents only (no ACP)"
     else:
         pipeline_cmd = f"python pipeline.py {task_flag}"
-        harness_desc = "Claude Code (ACP) + OpenHands"
+        harness_desc = "Claude Code (ACP) + Gemini CLI (ACP) + OpenHands"
 
     prompt = f"""Run the multi-agent orchestration pipeline from this repo.
 
@@ -174,11 +174,13 @@ Steps:
 1. Install the OpenHands SDK and tools:
    pip install openhands-sdk openhands-tools
 
-2. Install Node.js dependencies for Claude Code ACP server:
+2. Install the ACP agent servers:
    npm install -g @agentclientprotocol/claude-agent-acp
+   npm install -g @google/gemini-cli
 
 3. Set up environment variables:
    - ANTHROPIC_API_KEY should already be available as a secret
+   - GEMINI_API_KEY should already be available as a secret
    - Set LLM_API_KEY=$ANTHROPIC_API_KEY
    - Set LLM_MODEL=anthropic/claude-sonnet-4-5-20250929
 
@@ -190,10 +192,10 @@ Steps:
    - The review findings (if any)
    - The total cost
 
-IMPORTANT: pipeline.py uses ACPAgent which spawns Claude Code via the
-Agent Client Protocol. This is a real ACP integration, not just a CLI
-wrapper. Let the script run to completion — it manages its own sub-agents
-internally."""
+IMPORTANT: pipeline.py uses ACPAgent which spawns Claude Code and Gemini
+CLI via the Agent Client Protocol (JSON-RPC 2.0 over stdio). This is
+real ACP, not a CLI wrapper. Let the script run to completion — it
+manages its own sub-agents internally."""
 
     return prompt, harness_desc
 
