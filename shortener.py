@@ -1,5 +1,6 @@
 import string
-import random
+import secrets
+import threading
 
 _ALPHABET = string.ascii_letters + string.digits
 _CODE_LENGTH = 6
@@ -7,48 +8,61 @@ _CODE_LENGTH = 6
 _url_to_code: dict[str, str] = {}
 _code_to_url: dict[str, str] = {}
 _hits: dict[str, int] = {}
+_lock = threading.Lock()
 
 
 def _generate_code() -> str:
+    # Called within shorten, so lock is already held.
     while True:
-        code = "".join(random.choices(_ALPHABET, k=_CODE_LENGTH))
+        code = "".join(secrets.choice(_ALPHABET) for _ in range(_CODE_LENGTH))
         if code not in _code_to_url:
             return code
 
 
 def shorten(url: str) -> str:
-    if url in _url_to_code:
-        return _url_to_code[url]
-    code = _generate_code()
-    _url_to_code[url] = code
-    _code_to_url[code] = url
-    _hits[code] = 0
-    return code
+    if not url:
+        raise ValueError("URL cannot be empty")
+    if not (url.startswith("http://") or url.startswith("https://")):
+        raise ValueError("URL must start with http:// or https://")
+
+    with _lock:
+        if url in _url_to_code:
+            return _url_to_code[url]
+        code = _generate_code()
+        _url_to_code[url] = code
+        _code_to_url[code] = url
+        _hits[code] = 0
+        return code
 
 
 def resolve(code: str) -> str | None:
-    url = _code_to_url.get(code)
-    if url is not None:
-        _hits[code] += 1
-    return url
+    with _lock:
+        url = _code_to_url.get(code)
+        if url is not None:
+            _hits[code] += 1
+        return url
 
 
 def stats() -> dict:
-    return dict(_hits)
+    with _lock:
+        return dict(_hits)
 
 
 if __name__ == "__main__":
-    code1 = shorten("https://example.com")
-    code2 = shorten("https://anthropic.com")
-    code3 = shorten("https://example.com")
+    try:
+        code1 = shorten("https://example.com")
+        code2 = shorten("https://anthropic.com")
+        code3 = shorten("https://example.com")
 
-    print(f"shorten('https://example.com')    -> {code1}")
-    print(f"shorten('https://anthropic.com')  -> {code2}")
-    print(f"shorten('https://example.com')    -> {code3} (same as first)")
+        print(f"shorten('https://example.com')    -> {code1}")
+        print(f"shorten('https://anthropic.com')  -> {code2}")
+        print(f"shorten('https://example.com')    -> {code3} (same as first)")
 
-    print(f"resolve({code1!r}) -> {resolve(code1)}")
-    print(f"resolve({code2!r}) -> {resolve(code2)}")
-    print(f"resolve({code1!r}) -> {resolve(code1)}")
-    print(f"resolve('missing') -> {resolve('missing')}")
+        print(f"resolve({code1!r}) -> {resolve(code1)}")
+        print(f"resolve({code2!r}) -> {resolve(code2)}")
+        print(f"resolve({code1!r}) -> {resolve(code1)}")
+        print(f"resolve('missing') -> {resolve('missing')}")
 
-    print(f"stats() -> {stats()}")
+        print(f"stats() -> {stats()}")
+    except ValueError as e:
+        print(f"Error: {e}")
