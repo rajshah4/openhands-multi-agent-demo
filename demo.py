@@ -114,6 +114,7 @@ def setup_llm() -> LLM:
         api_key=SecretStr(api_key),
         base_url=os.getenv("LLM_BASE_URL", None),
         usage_id="orchestrator-demo",
+        drop_params=True,
     )
 
 
