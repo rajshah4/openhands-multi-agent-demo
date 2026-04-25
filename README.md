@@ -3,7 +3,7 @@
 > **Claude Code + Gemini CLI + OpenHands** — three vendors, three conversations,
 > one repo. Running on OpenHands Cloud.
 
-![OpenHands Agent Control Plane — orchestrate any agent via ACP](assets/architecture.png)
+![OpenHands Multi-Agent Demo — three conversations, three vendors, one repo](assets/multi-conversation.png)
 
 ## What This Does
 
@@ -84,12 +84,27 @@ Actual output from a run on OpenHands Cloud (April 2026):
 | Review | OpenHands | $0.338 | 12 findings including command injection vuln and hash collision bug |
 | **Total** | **3 vendors** | **$0.39** | |
 
+## Alternative: ACP Subprocess Mode
+
+For direct agent-to-agent communication via ACP (Agent Client Protocol),
+use `pipeline.py`. This runs all harnesses as subprocesses in a single
+sandbox, communicating via JSON-RPC 2.0 over stdio:
+
+![OpenHands Agent Control Plane — ACP architecture](assets/architecture.png)
+
+```bash
+# Requires openhands-sdk — runs locally or inside a Cloud sandbox
+pip install openhands-sdk openhands-tools
+export LLM_API_KEY="your-key" ANTHROPIC_API_KEY="your-key" GEMINI_API_KEY="your-key"
+python pipeline.py
+```
+
 ## Files
 
 | File | Role |
 |------|------|
-| `demo.py` | **Run this** — orchestrates three Cloud conversations |
-| `pipeline.py` | Alternative: ACP-based pipeline (runs inside a single sandbox) |
+| `demo.py` | **★ Run this** — orchestrates three Cloud conversations |
+| `pipeline.py` | Alternative: ACP subprocess pipeline (single sandbox) |
 | `.agents/agents/code-reviewer.md` | File-based reviewer agent (Markdown, used by pipeline.py) |
 
 ## Enterprise Value
