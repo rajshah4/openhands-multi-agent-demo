@@ -44,6 +44,18 @@ RUN_TIMEOUT = 600            # 10 min per conversation
 
 # ── Task definitions ─────────────────────────────────────────────────
 
+CLAUDE_CODE_PREAMBLE = (
+    "IMPORTANT: For this task, you MUST use Claude Code as the implementation tool.\n"
+    "Steps:\n"
+    "1. Install Claude Code: npm install -g @anthropic-ai/claude-code\n"
+    "2. Run Claude Code with the task below using: "
+    "claude -p '<task>' --allowedTools 'Edit,Write,Read,Bash' "
+    "--output-format text\n"
+    "3. The ANTHROPIC_API_KEY environment variable is already available.\n"
+    "4. After Claude Code finishes, verify the output files exist.\n\n"
+    "The task for Claude Code:\n"
+)
+
 TASKS = {
     "url-shortener": {
         "implement": (
@@ -114,6 +126,12 @@ def parse_args():
         type=str,
         default="rajshah4/openhands-multi-agent-demo",
         help="GitHub repo for the conversations (default: rajshah4/openhands-multi-agent-demo)",
+    )
+    parser.add_argument(
+        "--use-claude",
+        action="store_true",
+        help="Use Claude Code as the implementation harness "
+             "(requires ANTHROPIC_API_KEY in OpenHands Cloud secrets)",
     )
     parser.add_argument(
         "--skip-fix",
@@ -275,45 +293,67 @@ def main():
             ),
         }
     else:
-        tasks = TASKS[args.task]
+        tasks = dict(TASKS[args.task])  # copy so we can modify
+
+    # If --use-claude, wrap the implementation task with Claude Code instructions
+    if args.use_claude:
+        impl_harness = "Claude Code (via OpenHands sandbox)"
+        tasks["implement"] = CLAUDE_CODE_PREAMBLE + tasks["implement"]
+    else:
+        impl_harness = "OpenHands Agent"
 
     print(f"\n  📋 Task: {args.task}")
     print(f"  📦 Repo: {args.repo}")
+    print(f"\n  🔧 Harnesses:")
+    print(f"     Implement → {impl_harness}")
+    print(f"     Review    → OpenHands Agent (file-based code-reviewer)")
+    print(f"     Fix       → OpenHands Agent")
 
     conversations = {}
 
     # Step 1: Implement
+    label = "STEP 1 — Implement"
+    if args.use_claude:
+        label += " (Claude Code)"
     conversations["implement"] = run_step(
         headers,
-        "STEP 1 — Implement",
+        label,
         tasks["implement"],
         args.repo,
     )
 
-    # Step 2: Review
+    # Step 2: Review (always OpenHands)
     conversations["review"] = run_step(
         headers,
-        "STEP 2 — Code Review",
+        "STEP 2 — Code Review (OpenHands)",
         tasks["review"],
         args.repo,
     )
 
-    # Step 3: Fix (optional)
+    # Step 3: Fix (optional, always OpenHands)
     if not args.skip_fix:
         conversations["fix"] = run_step(
             headers,
-            "STEP 3 — Fix Issues",
+            "STEP 3 — Fix Issues (OpenHands)",
             tasks["fix"],
             args.repo,
         )
 
     # Summary
+    harness_labels = {
+        "implement": impl_harness,
+        "review": "OpenHands Agent",
+        "fix": "OpenHands Agent",
+    }
+
     print(f"\n{'=' * 60}")
     print("  📊 Pipeline Summary")
     print(f"{'=' * 60}")
     for step, conv_id in conversations.items():
         url = f"{CLOUD_BASE}/conversations/{conv_id}"
-        print(f"  {step:12s} → {url}")
+        harness = harness_labels.get(step, "")
+        print(f"  {step:12s} [{harness}]")
+        print(f"               → {url}")
 
     print(f"\n  All conversations visible at: {CLOUD_BASE}")
     print(f"{'=' * 60}")
