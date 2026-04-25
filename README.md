@@ -3,6 +3,8 @@
 > **Claude Code + Gemini CLI + OpenHands** — three vendors, two ACP harnesses,
 > one control plane. Running on OpenHands Cloud.
 
+![OpenHands Agent Control Plane — orchestrate any agent via ACP](assets/architecture.png)
+
 ## What This Does
 
 OpenHands orchestrates **three different AI coding agents** working together:
