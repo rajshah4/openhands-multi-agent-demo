@@ -1,19 +1,23 @@
 # Multi-Agent Orchestration Demo
 
-> **Claude Code + Gemini CLI + OpenHands** — three vendors, two ACP harnesses,
-> one control plane. Running on OpenHands Cloud.
+> **Claude Code + Gemini CLI + OpenHands** — three vendors, three conversations,
+> one repo. Running on OpenHands Cloud.
 
 ![OpenHands Agent Control Plane — orchestrate any agent via ACP](assets/architecture.png)
 
 ## What This Does
 
-OpenHands orchestrates **three different AI coding agents** working together:
+OpenHands orchestrates **three different AI coding agents**, each in its own
+Cloud conversation, communicating through the git repo:
 
-| Phase | Harness | Vendor | Protocol | Task |
-|-------|---------|--------|----------|------|
-| 1 | **Claude Code** | Anthropic | ACP | Writes the implementation |
-| 2 | **Gemini CLI** | Google | ACP | Writes the tests |
-| 3 | **OpenHands** | OpenHands | SDK | Reviews everything |
+| Phase | Harness | Vendor | Conversation | Task |
+|-------|---------|--------|--------------|------|
+| 1 | **Claude Code** | Anthropic | ☁️ Own sandbox | Writes the implementation, commits to repo |
+| 2 | **Gemini CLI** | Google | ☁️ Own sandbox | Pulls code, writes tests, commits to repo |
+| 3 | **OpenHands** | OpenHands | ☁️ Own sandbox | Pulls everything, reviews all code |
+
+Each conversation is independently visible in the [Cloud UI](https://app.all-hands.dev).
+The repo is the communication channel — just like real engineering teams.
 
 ## Quick Start
 
@@ -38,7 +42,7 @@ export OPENHANDS_CLOUD_API_KEY="your-cloud-api-key"
 python demo.py
 ```
 
-Watch it live at the URL printed in the output.
+You'll see three conversation URLs — click each one to watch that agent work live.
 
 ### Options
 
@@ -47,37 +51,27 @@ python demo.py                          # default: url-shortener
 python demo.py --task csv-tool          # CSV-to-JSON converter
 python demo.py --task custom --custom-task "Build a rate limiter"
 python demo.py --repo youruser/yourrepo # your own repo
-python demo.py --no-claude              # OpenHands only (no ACP)
+python demo.py --no-claude              # OpenHands for all steps
 ```
 
 ## Architecture
 
 ```
-Your laptop                        OpenHands Cloud Sandbox
-┌──────────┐                       ┌────────────────────────────────┐
-│ demo.py  │── Cloud API ────────► │  pipeline.py (orchestrator)    │
-│          │                       │                                │
-│  starts  │   visible in UI       │  Phase 1: Claude Code (ACP)   │
-│  convo   │◄─ at app.all-hands ── │    └─ writes shortener.py     │
-│          │                       │                                │
-└──────────┘                       │  Phase 2: Gemini CLI (ACP)    │
-                                   │    └─ writes test_shortener.py │
-                                   │                                │
-                                   │  Phase 3: OpenHands            │
-                                   │    └─ reviews all .py files    │
-                                   └────────────────────────────────┘
+demo.py (your laptop)
+│
+├─► ☁️ Conversation 1   [Claude Code / Anthropic]
+│     └─ installs Claude Code, implements shortener.py, pushes to repo
+│
+├─► ☁️ Conversation 2   [Gemini CLI / Google]
+│     └─ installs Gemini CLI, pulls repo, writes test_shortener.py, pushes
+│
+└─► ☁️ Conversation 3   [OpenHands]
+      └─ pulls repo, reviews all .py files, reports findings
 ```
 
-Both ACP harnesses communicate via **JSON-RPC 2.0 over stdio** — the same
-protocol IDEs use to talk to AI agents. Real ACP, not CLI wrappers.
-
-## Files
-
-| File | Role |
-|------|------|
-| `demo.py` | **Run this** — starts the Cloud conversation |
-| `pipeline.py` | ACP pipeline — runs inside the sandbox |
-| `.agents/agents/code-reviewer.md` | File-based reviewer agent (Markdown) |
+Each conversation gets its own sandbox. Agents communicate through the
+shared git repo — Claude Code pushes code, Gemini CLI pulls it and adds
+tests, OpenHands pulls everything and reviews.
 
 ## Demo Results
 
@@ -85,19 +79,24 @@ Actual output from a run on OpenHands Cloud (April 2026):
 
 | Phase | Harness | Cost | Output |
 |-------|---------|------|--------|
-| Implement | Claude Code (ACP) | $0.048 | `shortener.py` — URL shortener with `shorten()`, `resolve()`, `stats()` |
-| Write Tests | Gemini CLI (ACP) | $0.000 | `test_shortener.py`, `test_demo.py`, `test_pipeline.py` — 17 pytest tests |
-| Review | OpenHands | $0.338 | 12 findings including a command injection vuln and hash collision bug |
+| Implement | Claude Code | $0.048 | `shortener.py` — URL shortener with `shorten()`, `resolve()`, `stats()` |
+| Write Tests | Gemini CLI | $0.000 | `test_shortener.py` + additional test files — 17 pytest tests |
+| Review | OpenHands | $0.338 | 12 findings including command injection vuln and hash collision bug |
 | **Total** | **3 vendors** | **$0.39** | |
 
-The reviewer caught real bugs in code written by Claude Code — that's the value
-of multi-harness: different agents catch different things.
+## Files
+
+| File | Role |
+|------|------|
+| `demo.py` | **Run this** — orchestrates three Cloud conversations |
+| `pipeline.py` | Alternative: ACP-based pipeline (runs inside a single sandbox) |
+| `.agents/agents/code-reviewer.md` | File-based reviewer agent (Markdown, used by pipeline.py) |
 
 ## Enterprise Value
 
-- **Multi-vendor** — Anthropic writes, Google tests, OpenHands reviews
-- **Real ACP** — Agent Client Protocol (JSON-RPC 2.0 over stdio), not CLI wrappers
-- **Observable** — Full pipeline visible in OpenHands Cloud UI
-- **Vendor-flexible** — Swap any ACP agent without changing the pipeline
-- **Extensible** — Add agents as Markdown files, no deployment needed
+- **Multi-vendor** — Anthropic implements, Google tests, OpenHands reviews
+- **Observable** — Each agent in its own conversation, fully auditable in Cloud UI
+- **Distributed** — Agents communicate through artifacts (git), not tight coupling
+- **Vendor-flexible** — Swap any agent without changing the pipeline
+- **Extensible** — Add new harnesses by adding entries to `HARNESS_INSTRUCTIONS`
 - **Cost-effective** — Full implement + test + review pipeline for under $0.40
