@@ -1,7 +1,16 @@
 # Multi-Agent Orchestration Patterns
 
-This document explains the three architectural patterns for multi-agent orchestration
-with OpenHands, their trade-offs, and when to use each.
+This document explains three technical patterns for orchestrating multiple agents
+with OpenHands.
+
+The main idea is that OpenHands can act as the orchestration layer, or control
+plane, around heterogeneous agent harnesses. The workflow can stay stable while
+the runtime model changes: agents can share a workspace directly, hand off state
+through git across isolated local clones, or run in enterprise-managed cloud
+sandboxes.
+
+The sections below focus on the trade-offs between those patterns and when to
+use each one.
 
 ## Quick Visual Guide
 
@@ -43,11 +52,11 @@ with OpenHands, their trade-offs, and when to use each.
 
 ## Pattern Overview
 
-| Pattern | Isolation | Complexity | Infrastructure |
-|---------|-----------|------------|----------------|
-| **1. Easy** | None | Low | None |
-| **2. Isolated Local** | Full | High | Manual |
-| **3. Enterprise** | Full | Medium | Automatic |
+| Pattern | State Sharing | Isolation | Operational Complexity | Infrastructure |
+|---------|---------------|-----------|------------------------|----------------|
+| **1. Easy** | Shared workspace | None | Low | None |
+| **2. Isolated Local** | Git handoff | Full | High | Manual |
+| **3. Enterprise** | Git handoff | Full | Medium | Automatic |
 
 ---
 

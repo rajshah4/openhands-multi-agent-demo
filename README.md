@@ -1,9 +1,12 @@
-# Multi-Agent Orchestration with OpenHands
+# How OpenHands Orchestrates Multiple Agents
 
-> Three vendors, one pipeline — OpenHands orchestrates Claude Code, Gemini CLI,
-> and its own agents to implement, test, and review code.
+> OpenHands lets you choose how agents share state, how they are isolated, and
+> how the workflow is orchestrated.
 
-![OpenHands Multi-Agent Demo — three conversations, three vendors, one repo](assets/multi-conversation.png)
+![OpenHands control plane for multiple agent harnesses](assets/openhands-control-plane.png)
+
+The diagram above shows the control-plane view: OpenHands coordinates the
+workflow while different harnesses and runtime models sit underneath it.
 
 ## Why Multi-Agent Orchestration?
 
@@ -12,10 +15,13 @@ Claude Code, Gemini CLI, and OpenHands are all harnesses. Each has different
 strengths: Claude Code for implementation, Gemini CLI for fast test generation,
 OpenHands for code review with its own agent framework.
 
-This demo uses OpenHands as the orchestration layer that coordinates all three.
-The same implement → test → review pipeline runs across vendors, and you can
-swap any harness without changing the pipeline. The point isn't that you *need*
-three vendors — it's that you *can*, and OpenHands makes them composable.
+This repo treats OpenHands as the orchestration layer, or control plane, around
+those harnesses. The key idea is that the workflow is separate from the runtime:
+the same implement → test → review pipeline can run with different harnesses,
+with different state-sharing models, and with different isolation strategies.
+
+The point is not that you must use three vendors. The point is that you can
+compose heterogeneous agent systems while keeping the workflow itself stable.
 
 ## The Pipeline
 
@@ -27,12 +33,16 @@ Every demo in this repo runs the same three-phase pipeline:
 | **Test** | Gemini CLI (Google) | Reads the code and adds pytest coverage |
 | **Review** | OpenHands | Reviews everything, reports findings with severity |
 
-You can swap any harness — run `--no-claude` to use OpenHands for all phases.
+You can swap harnesses within the pipeline — for example, run `--no-claude` to
+use OpenHands for all phases, or move the same workflow between shared
+workspaces, isolated local clones, and managed cloud sandboxes.
 
 ## Three Patterns for Multi-Agent Orchestration
 
 This repo demonstrates **three architectural patterns** for running multiple agents.
 They produce the same output but differ in isolation, complexity, and infrastructure.
+
+![Three orchestration patterns for the same multi-agent workflow](assets/openhands-patterns-comparison.png)
 
 📖 **[Read the full patterns guide →](PATTERNS.md)** for detailed architecture explanations,
 decision trees, and migration paths.
