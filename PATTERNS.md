@@ -30,24 +30,24 @@ with OpenHands, their trade-offs, and when to use each.
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
-│                  Pattern 3: Cloud                           │
-│  cloud_conversations.py (~50 lines)                │
+│                  Pattern 3: Enterprise                      │
+│  cloud_conversations.py (~50 lines)                         │
 │       │                                                     │
 │       ├─► ☁️  Sandbox 1 (auto) → Agent 1 + Web UI          │
 │       ├─► ☁️  Sandbox 2 (auto) → Agent 2 + Web UI          │
 │       └─► ☁️  Sandbox 3 (auto) → Agent 3 + Web UI          │
-│              Cloud handles everything ✅                     │
+│              Platform handles everything ✅                  │
 │  ✅ Full isolation  ✅ Simple code  ✅ Observability         │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## Pattern Overview
 
-| Pattern | Isolation | Complexity | Infrastructure | Best For |
-|---------|-----------|------------|----------------|----------|
-| **1. Easy** | None | Low (~10 lines) | None | Local dev |
-| **2. Isolated Local** | Full | High (~150 lines) | Manual | Air-gapped |
-| **3. Cloud** | Full | Medium (~50 lines) | Automatic | Production |
+| Pattern | Isolation | Complexity | Infrastructure |
+|---------|-----------|------------|----------------|
+| **1. Easy** | None | Low (~10 lines) | None |
+| **2. Isolated Local** | Full | High (~150 lines) | Manual |
+| **3. Enterprise** | Full | Medium (~50 lines) | Automatic |
 
 ---
 
@@ -267,7 +267,7 @@ proc3.terminate()
 
 ---
 
-## Pattern 3: Cloud (Automatic Multi-Sandbox)
+## Pattern 3: Enterprise (Automatic Multi-Sandbox)
 
 ### Architecture
 
@@ -277,7 +277,7 @@ cloud_conversations.py (your laptop)
 │  Orchestration Logic Only
 │  (~50 lines of code)
 │
-├─► OpenHands Cloud API
+├─► OpenHands Cloud/Enterprise API
     │
     ├─► ☁️ Sandbox 1 (automatic)
     │     ├─ Git setup ✅
@@ -300,14 +300,14 @@ cloud_conversations.py (your laptop)
 
 ### How It Works
 
-Cloud **automatically provisions** sandboxes for each agent:
+The platform **automatically provisions** sandboxes for each agent:
 
-1. YOU call Cloud API: "Start conversation for implementation"
-2. Cloud provisions sandbox, sets up git, starts agent
-3. Cloud monitors, provides Web UI, handles cleanup
+1. YOU call the API: "Start conversation for implementation"
+2. Platform provisions sandbox, sets up git, starts agent
+3. Platform monitors, provides Web UI, handles cleanup
 4. Repeat for each agent
 
-**Communication:** Git (Cloud manages it)
+**Communication:** Git (platform manages it)
 
 ### Code Example
 
@@ -397,14 +397,14 @@ wait_for_completion(conv3['id'])
 ```
 Pattern 1 (Easy):          Too coupled      ← Local dev
 Pattern 2 (Multi-Local):   Too complex      ← Air-gapped only
-Pattern 3 (Cloud):         Just right! ✨    ← Production
+Pattern 3 (Enterprise):    Just right! ✨    ← Production
 ```
 
 ### Key Insight
 
 **Pattern 3 = Isolation of Pattern 2 + Simplicity of Pattern 1**
 
-Cloud orchestration gives you:
+Enterprise orchestration gives you:
 - Full isolation (like Pattern 2)
 - Simple code (like Pattern 1)
 - Plus: Observability, scalability, reliability
@@ -424,9 +424,9 @@ Do you need full isolation between agents?
 │        - Agents collaborate tightly
 │        - ~10 lines of code
 │
-└─ Yes → Can you use Cloud?
+└─ Yes → Can you use Enterprise?
          │
-         ├─ Yes → Pattern 3 (Cloud)
+         ├─ Yes → Pattern 3 (Enterprise)
          │         - Production workflows
          │         - ~50 lines of code
          │         - Automatic orchestration
@@ -468,7 +468,7 @@ Most teams don't need the complexity of managing multiple agent-servers locally.
 ### Agent-Server vs App-Server
 
 - **agent-server** — Single agent runtime (Pattern 1, Pattern 2)
-- **app-server** — Multi-agent orchestration (Pattern 3, Cloud)
+- **app-server** — Multi-agent orchestration (Pattern 3, Enterprise)
 
 Pattern 2 runs multiple **agent-servers** to achieve what **app-server** does
 automatically in Pattern 3.
@@ -478,12 +478,12 @@ automatically in Pattern 3.
 The new OpenHands architecture:
 - **Canvas (GUI)** — Single frontend for all backends
 - **Agent-Server** — OSS runtime (Patterns 1 & 2)
-- **Cloud** — SaaS runtime (Pattern 3)
+- **Enterprise** — Cloud or self-hosted runtime (Pattern 3)
 
 All three patterns work with this architecture:
 - Pattern 1: Canvas → local agent-server
 - Pattern 2: Canvas → multiple local agent-servers
-- Pattern 3: Canvas → Cloud backend
+- Pattern 3: Canvas → Enterprise backend (Cloud or self-hosted)
 
 ---
 
