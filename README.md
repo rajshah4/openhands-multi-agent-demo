@@ -24,7 +24,7 @@ Every demo in this repo runs the same three-phase pipeline:
 | Phase | Default Harness | What it does |
 |-------|-----------------|--------------|
 | **Implement** | Claude Code (Anthropic) | Writes the code from a spec |
-| **Test** | Gemini CLI (Google) | Reads the code, writes and runs pytest tests |
+| **Test** | Gemini CLI (Google) | Reads the code and adds pytest coverage |
 | **Review** | OpenHands | Reviews everything, reports findings with severity |
 
 You can swap any harness — run `--no-claude` to use OpenHands for all phases.
@@ -43,9 +43,9 @@ decision trees, and migration paths.
 |---|---|---|---|
 | **Script** | `shared_workspace.py` | `multi_server_isolation.py` | `cloud_conversations.py` |
 | **Sandboxes** | 1 shared | N isolated (manual) | N isolated (automatic) |
-| **Agent-Servers** | 1 instance | N instances | Enterprise-managed |
+| **Local runtime shape** | 1 shared workspace | N isolated clones | Enterprise-managed |
 | **Coordination** | Filesystem | Git (you orchestrate) | Git (Enterprise orchestrates) |
-| **Code complexity** | ~10 lines | ~150 lines | ~50 lines |
+| **Code complexity** | Low | High | Medium |
 | **Infrastructure** | None | Manual server management | Automatic provisioning |
 | **Observability** | Terminal logs | Terminal logs | Web UI per agent |
 
@@ -59,10 +59,11 @@ decision trees, and migration paths.
 - ✅ Minimal infrastructure
 - ❌ No isolation between agents
 
-**Pattern 2 (Isolated Local)** — Full isolation, manual orchestration  
+**Pattern 2 (Isolated Local)** — Full isolation, manual orchestration
 - ✅ Complete isolation without Cloud
 - ✅ Air-gapped environments
-- ❌ You manage multiple servers, ports, and git coordination
+- ✅ Real local verification with pytest
+- ❌ You manage git coordination and retry logic
 - ❌ More complex orchestration code
 
 **Pattern 3 (Enterprise)** — Full isolation, automatic orchestration
@@ -114,42 +115,52 @@ subagents — the LLM decides the flow rather than a hardcoded script.
 
 ---
 
-## Pattern 2: Isolated Local — Multiple Agent-Servers (`multi_server_isolation.py`)
+## Pattern 2: Isolated Local — Multiple Workspaces (`multi_server_isolation.py`)
 
-Each agent runs in its **own isolated workspace** with different temporary directories.
-You manually orchestrate git push/pull between isolated workspaces.
+Each phase runs in its **own isolated git clone** under a different temporary
+directory. The script uses the OpenHands SDK for every phase, and changes move
+between workspaces through git push/pull.
 
 ```
 multi_server_isolation.py (your laptop)
 │
-├─► Agent 1 [Claude Code]  → /tmp/workspace_claude/
-│     └─ Implements shortener.py → git push
+├─► Agent 1 [OpenHands SDK + Anthropic LLM]  → /tmp/workspace_claude/
+│     └─ Implements code → git push
 │
-├─► Agent 2 [Gemini CLI]   → /tmp/workspace_gemini/  
-│     └─ git pull → writes tests → git push
+├─► Agent 2 [OpenHands SDK + Gemini LLM]     → /tmp/workspace_gemini/
+│     └─ git pull → writes tests → pytest → optional repair → git push
 │
-└─► Agent 3 [OpenHands]    → /tmp/workspace_reviewer/
+└─► Agent 3 [OpenHands SDK reviewer]         → /tmp/workspace_reviewer/
       └─ git pull → reviews code
 ```
 
-**Architecture:** Multiple isolated workspaces, manual git coordination.
-Each agent has its own directory, you coordinate changes via git.
+**Architecture:** Multiple isolated workspaces, manual git coordination, and a
+local bare repo used as the shared origin. Each phase has its own clone and the
+orchestrator runs local `pytest` verification before review.
 
 **Best for:** Air-gapped environments, custom orchestration, learning how to build multi-agent systems.
 
-**Trade-off:** Full isolation but requires ~300 lines of orchestration code to
-manage workspaces and git coordination.
+**Trade-off:** Full isolation, but the local orchestrator has to manage repo
+mirroring, branch handoff, verification, and repair retries.
 
 ### Setup and Run
 
 ```bash
 # Prerequisites: Same as Pattern 1 (ANTHROPIC_API_KEY, GEMINI_API_KEY)
-pip install openhands-ai
+pip install openhands-ai pytest
 
 python multi_server_isolation.py                    # Run full pipeline
 python multi_server_isolation.py --no-claude        # OpenHands only
 python multi_server_isolation.py --task csv-tool    # Different task
 ```
+
+Notes:
+- `multi_server_isolation.py` creates a temporary bare git origin from your
+  local checkout, then clones isolated workspaces from that origin.
+- The implementation phase defaults to Anthropic Sonnet, the test phase
+  defaults to Gemini, and the reviewer falls back across configured LLM keys.
+- The tester workspace is verified with local `pytest`; if it fails, the script
+  does one repair pass and retries.
 
 ---
 
@@ -197,8 +208,8 @@ python cloud_conversations.py --no-claude              # OpenHands for all steps
 You'll see three conversation URLs — click each one to watch that agent work live
 in the [Cloud UI](https://app.all-hands.dev).
 
-**Value:** Same isolation as Pattern 2 (multi-server) but with ~50 lines of code
-instead of ~150. Cloud handles sandbox provisioning, cleanup, and observability.
+**Value:** Same isolation goal as Pattern 2, but Cloud handles sandbox
+provisioning, cleanup, and observability for you.
 
 ---
 
@@ -240,14 +251,14 @@ Each pattern represents a different **isolation vs. complexity** trade-off:
 - ❌ No isolation (agents share filesystem)
 
 **Pattern 2** provides local isolation but at high cost:
-- ✅ Full isolation (separate agent-servers)
+- ✅ Full isolation (separate workspaces and git clones)
 - ✅ Air-gapped capability
-- ❌ Complex (~150 lines to orchestrate)
-- ❌ Manual server/port/git management
+- ❌ Complex local orchestration
+- ❌ Manual git handoff, verification, and retry management
 
 **Pattern 3** is the "Goldilocks" for production:
 - ✅ Full isolation (Cloud provisions sandboxes)
-- ✅ Simple (~50 lines)
+- ✅ Thin local orchestration script
 - ✅ Observability (Web UI per agent)
 - ✅ Automatic orchestration
 - ❌ Requires Cloud connectivity
@@ -264,8 +275,8 @@ complexity. Cloud handles:
 - ✅ Observability (Web UI)
 - ✅ Error recovery
 
-This is why `cloud_conversations.py` is only ~50 lines while a local multi-server equivalent
-(`multi_server_isolation.py`) would be ~150 lines.
+This is why `cloud_conversations.py` stays relatively thin while
+`multi_server_isolation.py` carries the local orchestration burden directly.
 
 ---
 

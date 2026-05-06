@@ -3,24 +3,25 @@
 Pattern 2: Isolated Multi-Agent Orchestration
 ==============================================
 
-Run multiple agents in ISOLATED workspaces with MANUAL orchestration.
+Run multiple isolated OpenHands SDK conversations with manual git orchestration.
 
 Architecture:
     multi_server_isolation.py (your laptop)
     │
-    ├─► Agent 1 [Claude Code]  → /tmp/workspace_claude/
+    ├─► Agent 1 [OpenHands SDK + Anthropic LLM]  → /tmp/workspace_claude/
     │     └─ Implements shortener.py → git push
     │
-    ├─► Agent 2 [Gemini CLI]   → /tmp/workspace_gemini/
+    ├─► Agent 2 [OpenHands SDK + Gemini LLM]     → /tmp/workspace_gemini/
     │     └─ git pull → writes tests → git push
     │
-    └─► Agent 3 [OpenHands]    → /tmp/workspace_reviewer/
-          └─ git pull → reviews code
+    └─► Agent 3 [OpenHands SDK reviewer]         → /tmp/workspace_reviewer/
+          └─ git pull → review, with local pytest verification earlier in the flow
 
 Key Differences from Pattern 1:
 - Each agent has its OWN isolated workspace
+- The orchestrator mirrors the local repo into a temporary bare origin
 - You manually orchestrate git push/pull between agents
-- More complex, but provides full isolation
+- The tester workspace is verified with local pytest, with one repair retry
 
 Usage:
     python multi_server_isolation.py                    # Run full pipeline
@@ -37,8 +38,11 @@ import time
 from pathlib import Path
 from typing import Optional
 
+from pydantic import SecretStr
+
 try:
-    from openhands_ai import Agent, AgentConfig, Runtime, RuntimeConfig
+    from openhands.sdk import Agent, Conversation, LLM
+    from openhands.tools.preset.default import get_default_tools
 except ImportError:
     print("❌ OpenHands SDK not installed")
     print("\nInstall with:")
@@ -51,18 +55,20 @@ except ImportError:
 # Configuration
 # ============================================================================
 
-REPO_URL = "https://github.com/rajshah4/openhands-demo-repo.git"
+DEFAULT_REPO_SOURCE = Path(__file__).resolve().parent
 BRANCH_NAME = f"multi-agent-{int(time.time())}"
+DEFAULT_ANTHROPIC_MODEL = "anthropic/claude-sonnet-4-5-20250929"
+DEFAULT_GEMINI_MODEL = "gemini/gemini-2.5-flash"
 
 TASKS = {
     "url-shortener": {
-        "implement": "Create a file shortener.py with shorten(url), resolve(short_code), and stats() functions. Use in-memory dict storage.",
-        "test": "Write comprehensive pytest tests for shortener.py. Cover all three functions with edge cases.",
+        "implement": "Create or update shortener.py so it provides shorten(url), resolve(short_code), and stats() functions. Use in-memory dict storage.",
+        "test": "Write comprehensive pytest tests for shortener.py. Cover all three functions with edge cases. Leave the test file in place and do not delete it. Do not create a virtual environment or install packages; the orchestrator will run pytest separately.",
         "review": "Review all Python files. Check for bugs, security vulnerabilities, and code quality issues. Be thorough.",
     },
     "csv-tool": {
         "implement": "Create csv_to_json.py with a convert(csv_path, json_path) function. Handle headers and types.",
-        "test": "Write pytest tests for csv_to_json.py. Test empty files, headers, type conversion.",
+        "test": "Write pytest tests for csv_to_json.py. Test empty files, headers, type conversion. Leave the test file in place and do not delete it. Do not create a virtual environment or install packages; the orchestrator will run pytest separately.",
         "review": "Review all Python files for bugs, errors, and quality issues.",
     },
 }
@@ -71,6 +77,26 @@ TASKS = {
 # ============================================================================
 # Git Helper Functions
 # ============================================================================
+
+def create_origin_repo(repo_source: str) -> Path:
+    """Create a local bare git repo that acts as the shared origin."""
+    repo_path = Path(repo_source).expanduser().resolve()
+    if not repo_path.exists():
+        raise FileNotFoundError(f"Repository source does not exist: {repo_path}")
+
+    origin_root = Path(tempfile.mkdtemp(prefix="pattern2_origin_"))
+    origin_repo = origin_root / "origin.git"
+
+    print(f"  🗃️  Creating local origin from: {repo_path}")
+    subprocess.run(
+        ["git", "clone", "--bare", str(repo_path), str(origin_repo)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    print(f"  ✅ Local origin ready: {origin_repo}")
+    return origin_repo
+
 
 def setup_git_workspace(workspace: Path, repo_url: str, branch: str) -> None:
     """Clone repo and create branch in isolated workspace."""
@@ -137,7 +163,7 @@ def git_push_changes(workspace: Path, branch: str, agent_name: str) -> bool:
         )
         
         subprocess.run(
-            ["git", "push", "origin", branch],
+            ["git", "push", "-u", "origin", branch],
             cwd=workspace,
             check=True,
             capture_output=True
@@ -145,7 +171,13 @@ def git_push_changes(workspace: Path, branch: str, agent_name: str) -> bool:
         print(f"  ✅ Changes pushed to {branch}")
         return True
     else:
-        print(f"  ℹ️  No changes to push")
+        subprocess.run(
+            ["git", "push", "-u", "origin", branch],
+            cwd=workspace,
+            check=True,
+            capture_output=True,
+        )
+        print(f"  ℹ️  No changes to commit; published branch {branch}")
         return False
 
 
@@ -154,13 +186,45 @@ def git_pull_changes(workspace: Path, branch: str, agent_name: str) -> None:
     print(f"  📥 Pulling latest changes for {agent_name}...")
     
     subprocess.run(
-        ["git", "pull", "origin", branch],
+        ["git", "fetch", "origin", branch],
+        cwd=workspace,
+        check=True,
+        capture_output=True
+    )
+    subprocess.run(
+        ["git", "merge", "--ff-only", "FETCH_HEAD"],
         cwd=workspace,
         check=True,
         capture_output=True
     )
     
     print(f"  ✅ Changes synced from {branch}")
+
+
+def run_pytest(workspace: Path) -> tuple[bool, str]:
+    """Run pytest in the isolated workspace using the current interpreter."""
+    print("  🧪 Running pytest...")
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q"],
+        cwd=workspace,
+        capture_output=True,
+        text=True,
+    )
+
+    if result.stdout.strip():
+        print(result.stdout.strip())
+    if result.stderr.strip():
+        print(result.stderr.strip())
+
+    combined_output = "\n".join(
+        part for part in [result.stdout.strip(), result.stderr.strip()] if part
+    )
+
+    if result.returncode != 0:
+        return False, combined_output
+
+    print("  ✅ pytest passed")
+    return True, combined_output
 
 
 # ============================================================================
@@ -171,7 +235,7 @@ def run_agent(
     workspace: Path,
     task: str,
     agent_name: str,
-    llm_config: Optional[dict] = None
+    llm: LLM,
 ) -> None:
     """
     Run a single agent in an isolated workspace.
@@ -180,7 +244,7 @@ def run_agent(
         workspace: Path to isolated workspace
         task: Task description for the agent
         agent_name: Display name for logs
-        llm_config: LLM configuration (provider, model, api_key)
+        llm: Configured LLM for the agent
     """
     print(f"\n{'='*60}")
     print(f"  {agent_name}")
@@ -189,21 +253,17 @@ def run_agent(
     print(f"  Task: {task}")
     print(f"{'─'*60}")
     
-    # Create runtime with isolated workspace
-    runtime_config = RuntimeConfig(
-        workspace_dir=str(workspace),
-        sandbox_type="local",
+    agent = Agent(
+        llm=llm,
+        tools=get_default_tools(enable_browser=False),
     )
-    runtime = Runtime(config=runtime_config)
-    
-    # Create agent
-    agent_config = AgentConfig(llm_config=llm_config) if llm_config else AgentConfig()
-    agent = Agent(config=agent_config, runtime=runtime)
+    conversation = Conversation(agent=agent, workspace=workspace)
     
     try:
         # Send task and wait for completion
         print(f"  🤖 Starting agent...")
-        response = agent.run(task)
+        conversation.send_message(task)
+        conversation.run()
         
         print(f"  ✅ Agent completed")
         
@@ -215,14 +275,76 @@ def run_agent(
                 print(f"     • {f.name}")
     
     finally:
-        runtime.cleanup()
+        conversation.close()
+
+
+def build_llm(
+    *,
+    api_key_env: str,
+    default_model: str,
+    usage_id: str,
+    model_env: Optional[str] = None,
+) -> LLM:
+    """Build an OpenHands LLM config from environment variables."""
+    api_key = os.getenv(api_key_env)
+    if not api_key:
+        raise RuntimeError(f"{api_key_env} is not set")
+
+    model = os.getenv(model_env, default_model) if model_env else default_model
+    base_url = os.getenv("LLM_BASE_URL")
+
+    return LLM(
+        model=model,
+        api_key=SecretStr(api_key),
+        base_url=base_url,
+        usage_id=usage_id,
+        drop_params=True,
+    )
+
+
+def build_reviewer_llm() -> LLM:
+    """Prefer generic LLM config, then fall back to Anthropic/Gemini keys."""
+    llm_api_key = os.getenv("LLM_API_KEY")
+    if llm_api_key:
+        return LLM(
+            model=os.getenv("LLM_MODEL", DEFAULT_ANTHROPIC_MODEL),
+            api_key=SecretStr(llm_api_key),
+            base_url=os.getenv("LLM_BASE_URL"),
+            usage_id="pattern2-reviewer",
+            drop_params=True,
+        )
+
+    if os.getenv("GEMINI_API_KEY"):
+        return build_llm(
+            api_key_env="GEMINI_API_KEY",
+            default_model=DEFAULT_GEMINI_MODEL,
+            model_env="GEMINI_MODEL",
+            usage_id="pattern2-reviewer",
+        )
+
+    if os.getenv("ANTHROPIC_API_KEY"):
+        return build_llm(
+            api_key_env="ANTHROPIC_API_KEY",
+            default_model=DEFAULT_ANTHROPIC_MODEL,
+            model_env="ANTHROPIC_MODEL",
+            usage_id="pattern2-reviewer",
+        )
+
+    raise RuntimeError(
+        "No reviewer LLM credentials found. Set LLM_API_KEY, "
+        "ANTHROPIC_API_KEY, or GEMINI_API_KEY."
+    )
 
 
 # ============================================================================
 # Main Pipeline
 # ============================================================================
 
-def run_multi_agent_pipeline(task_name: str = "url-shortener", use_claude: bool = True):
+def run_multi_agent_pipeline(
+    task_name: str = "url-shortener",
+    use_claude: bool = True,
+    repo_source: str = str(DEFAULT_REPO_SOURCE),
+):
     """
     Run the multi-agent pipeline with full isolation.
     
@@ -246,6 +368,8 @@ def run_multi_agent_pipeline(task_name: str = "url-shortener", use_claude: bool 
     print("  PHASE 0: Setup Isolated Workspaces")
     print(f"{'─'*60}")
     
+    origin_repo = create_origin_repo(repo_source)
+
     workspaces = {
         "claude": Path(tempfile.mkdtemp(prefix="workspace_claude_")),
         "gemini": Path(tempfile.mkdtemp(prefix="workspace_gemini_")),
@@ -255,7 +379,7 @@ def run_multi_agent_pipeline(task_name: str = "url-shortener", use_claude: bool 
     try:
         # Setup each workspace with git
         for name, workspace in workspaces.items():
-            setup_git_workspace(workspace, REPO_URL, BRANCH_NAME)
+            setup_git_workspace(workspace, str(origin_repo), BRANCH_NAME)
             print()
         
         # ================================================================
@@ -269,12 +393,7 @@ def run_multi_agent_pipeline(task_name: str = "url-shortener", use_claude: bool 
         print(f"{'─'*60}")
         
         if use_claude:
-            claude_config = {
-                "provider": "anthropic",
-                "model": "claude-3-7-sonnet-20250219",
-                "api_key": os.getenv("ANTHROPIC_API_KEY"),
-            }
-            if not claude_config["api_key"]:
+            if not os.getenv("ANTHROPIC_API_KEY"):
                 print("⚠️  ANTHROPIC_API_KEY not set, falling back to OpenHands")
                 use_claude = False
         
@@ -283,7 +402,12 @@ def run_multi_agent_pipeline(task_name: str = "url-shortener", use_claude: bool 
                 workspaces["claude"],
                 tasks["implement"],
                 "Claude Code (Implementer)",
-                llm_config=claude_config
+                llm=build_llm(
+                    api_key_env="ANTHROPIC_API_KEY",
+                    default_model=DEFAULT_ANTHROPIC_MODEL,
+                    model_env="ANTHROPIC_MODEL",
+                    usage_id="pattern2-claude",
+                ),
             )
             git_push_changes(workspaces["claude"], BRANCH_NAME, "Claude")
         else:
@@ -291,7 +415,7 @@ def run_multi_agent_pipeline(task_name: str = "url-shortener", use_claude: bool 
                 workspaces["claude"],
                 tasks["implement"],
                 "OpenHands (Implementer)",
-                llm_config=None
+                llm=build_reviewer_llm(),
             )
             git_push_changes(workspaces["claude"], BRANCH_NAME, "OpenHands")
         
@@ -305,29 +429,62 @@ def run_multi_agent_pipeline(task_name: str = "url-shortener", use_claude: bool 
         # Pull implementation into Gemini's isolated workspace
         git_pull_changes(workspaces["gemini"], BRANCH_NAME, "Gemini")
         
-        gemini_config = {
-            "provider": "google",
-            "model": "gemini-2.0-flash-exp",
-            "api_key": os.getenv("GEMINI_API_KEY"),
-        }
-        
-        if gemini_config["api_key"]:
+        tester_name = "Gemini CLI (Tester)"
+        if os.getenv("GEMINI_API_KEY"):
+            tester_llm = build_llm(
+                api_key_env="GEMINI_API_KEY",
+                default_model=DEFAULT_GEMINI_MODEL,
+                model_env="GEMINI_MODEL",
+                usage_id="pattern2-gemini",
+            )
             run_agent(
                 workspaces["gemini"],
                 tasks["test"],
-                "Gemini CLI (Tester)",
-                llm_config=gemini_config
+                tester_name,
+                llm=tester_llm,
             )
         else:
             print("⚠️  GEMINI_API_KEY not set, falling back to OpenHands")
+            tester_name = "OpenHands (Tester)"
+            tester_llm = build_reviewer_llm()
             run_agent(
                 workspaces["gemini"],
                 tasks["test"],
-                "OpenHands (Tester)",
-                llm_config=None
+                tester_name,
+                llm=tester_llm,
             )
         
         git_push_changes(workspaces["gemini"], BRANCH_NAME, "Gemini")
+
+        print(f"\n{'─'*60}")
+        print("  PHASE 2B: Verification → Run pytest")
+        print(f"{'─'*60}")
+        pytest_ok, pytest_output = run_pytest(workspaces["gemini"])
+        if not pytest_ok:
+            print(f"\n{'─'*60}")
+            print("  PHASE 2C: Repair → Fix pytest failures")
+            print(f"{'─'*60}")
+            run_agent(
+                workspaces["gemini"],
+                (
+                    "Pytest is failing. Fix the implementation and/or tests so "
+                    "they pass.\n\n"
+                    "Do not delete the test file. Do not create a virtual "
+                    "environment or install packages. The orchestrator will rerun "
+                    "pytest after you finish.\n\n"
+                    f"Current pytest output:\n{pytest_output}"
+                ),
+                f"{tester_name} (Repair)",
+                llm=tester_llm,
+            )
+            git_push_changes(workspaces["gemini"], BRANCH_NAME, "Gemini")
+
+            print(f"\n{'─'*60}")
+            print("  PHASE 2D: Verification Retry → Run pytest")
+            print(f"{'─'*60}")
+            pytest_ok, pytest_output = run_pytest(workspaces["gemini"])
+            if not pytest_ok:
+                raise RuntimeError("pytest verification failed after repair pass")
         
         # ================================================================
         # Phase 3: Review
@@ -343,7 +500,7 @@ def run_multi_agent_pipeline(task_name: str = "url-shortener", use_claude: bool 
             workspaces["reviewer"],
             tasks["review"],
             "OpenHands (Reviewer)",
-            llm_config=None
+            llm=build_reviewer_llm(),
         )
         
         # ================================================================
@@ -354,7 +511,8 @@ def run_multi_agent_pipeline(task_name: str = "url-shortener", use_claude: bool 
         print(f"{'='*60}")
         
         print(f"\n  Branch: {BRANCH_NAME}")
-        print(f"  Repo: {REPO_URL}")
+        print(f"  Origin: {origin_repo}")
+        print(f"  Source: {Path(repo_source).expanduser().resolve()}")
         
         print("\n  Isolated Workspaces:")
         print(f"    • Claude:   {workspaces['claude']}")
@@ -399,6 +557,16 @@ def main():
         action="store_true",
         help="Use OpenHands for all phases (no Claude)"
     )
+    parser.add_argument(
+        "--repo",
+        default=str(DEFAULT_REPO_SOURCE),
+        help="Local git repository to mirror into isolated workspaces",
+    )
+    parser.add_argument(
+        "--yes",
+        action="store_true",
+        help="Skip the confirmation prompt",
+    )
     
     args = parser.parse_args()
     
@@ -416,14 +584,16 @@ def main():
     print("="*60)
     print()
     
-    response = input("Continue with Pattern 2? [y/N]: ")
-    if response.lower() != 'y':
-        print("Exiting.")
-        sys.exit(0)
+    if not args.yes:
+        response = input("Continue with Pattern 2? [y/N]: ")
+        if response.lower() != 'y':
+            print("Exiting.")
+            sys.exit(0)
     
     run_multi_agent_pipeline(
         task_name=args.task,
-        use_claude=not args.no_claude
+        use_claude=not args.no_claude,
+        repo_source=args.repo,
     )
 
 

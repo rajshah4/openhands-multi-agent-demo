@@ -20,18 +20,18 @@ with OpenHands, their trade-offs, and when to use each.
 ┌─────────────────────────────────────────────────────────────┐
 │              Pattern 2: Isolated Local                      │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
-│  │ Server 1 │  │ Server 2 │  │ Server 3 │                  │
+│  │ Clone 1  │  │ Clone 2  │  │ Clone 3  │                  │
 │  │ Agent 1  │  │ Agent 2  │  │ Agent 3  │                  │
 │  │ /tmp/ws1 │  │ /tmp/ws2 │  │ /tmp/ws3 │                  │
 │  └────┬─────┘  └────┬─────┘  └────┬─────┘                  │
 │       └──────git───┬─────git──────┘                        │
-│                    └─→ You orchestrate                      │
-│  ✅ Full isolation  ❌ Complex (~150 lines)                  │
+│                    └─→ Local orchestrator                   │
+│  ✅ Full isolation  ❌ Complex local control                 │
 └─────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────┐
 │                  Pattern 3: Enterprise                      │
-│  cloud_conversations.py (~50 lines)                         │
+│  cloud_conversations.py                                     │
 │       │                                                     │
 │       ├─► ☁️  Sandbox 1 (auto) → Agent 1 + Web UI          │
 │       ├─► ☁️  Sandbox 2 (auto) → Agent 2 + Web UI          │
@@ -45,9 +45,9 @@ with OpenHands, their trade-offs, and when to use each.
 
 | Pattern | Isolation | Complexity | Infrastructure |
 |---------|-----------|------------|----------------|
-| **1. Easy** | None | Low (~10 lines) | None |
-| **2. Isolated Local** | Full | High (~150 lines) | Manual |
-| **3. Enterprise** | Full | Medium (~50 lines) | Automatic |
+| **1. Easy** | None | Low | None |
+| **2. Isolated Local** | Full | High | Manual |
+| **3. Enterprise** | Full | Medium | Automatic |
 
 ---
 
@@ -128,134 +128,111 @@ reviewer.run()
 
 ---
 
-## Pattern 2: Isolated Local (Multiple Agent-Servers)
+## Pattern 2: Isolated Local (Multiple Workspaces)
 
 ### Architecture
 
 ```
-┌────────────────────────┐
-│ Agent-Server 1 (8080)  │
-│ ┌────────────────────┐ │     Git Push
-│ │ Workspace A        │ │ ────────────┐
-│ │ /tmp/claude_ws     │ │             │
-│ │ Agent: Claude      │ │             ↓
-│ └────────────────────┘ │         ┌─────────┐
-└────────────────────────┘         │   Git   │
-                                   │  Repo   │
-┌────────────────────────┐         └─────────┘
-│ Agent-Server 2 (8081)  │             ↑
-│ ┌────────────────────┐ │ Git Pull    │
-│ │ Workspace B        │ │ ────────────┘
-│ │ /tmp/gemini_ws     │ │             │
-│ │ Agent: Gemini      │ │             │
-│ └────────────────────┘ │             │
-└────────────────────────┘             │
-                                       │
-┌────────────────────────┐             │
-│ Agent-Server 3 (8082)  │             │
-│ ┌────────────────────┐ │ Git Pull    │
-│ │ Workspace C        │ │ ────────────┘
-│ │ /tmp/reviewer_ws   │ │
-│ │ Agent: Reviewer    │ │
-│ └────────────────────┘ │
-└────────────────────────┘
+┌──────────────────────────────┐
+│ Local orchestrator process   │
+│ multi_server_isolation.py    │
+└──────────────┬───────────────┘
+               │ creates a temporary bare origin
+               ↓
+         ┌──────────────┐
+         │ origin.git   │
+         └──────┬───────┘
+                │
+    ┌───────────┼───────────┐
+    ↓           ↓           ↓
+┌──────────┐ ┌──────────┐ ┌──────────┐
+│ Clone A  │ │ Clone B  │ │ Clone C  │
+│ impl     │ │ test     │ │ review   │
+│ /tmp/... │ │ /tmp/... │ │ /tmp/... │
+└──────────┘ └──────────┘ └──────────┘
 ```
 
 ### How It Works
 
-Each agent runs in **its own agent-server process** with **isolated workspace**:
+Each phase runs in **its own git clone** with an **isolated workspace**:
 
-1. Start agent-server 1 on port 8080 with workspace A
-2. Start agent-server 2 on port 8081 with workspace B
-3. Start agent-server 3 on port 8082 with workspace C
+1. Mirror the current repo into a temporary bare origin
+2. Clone that origin three times into separate temp directories
+3. Run an OpenHands SDK conversation in each workspace
 4. YOU orchestrate git push/pull between workspaces
+5. Run local `pytest` in the tester workspace before review
 
 **Communication:** Git (explicit push/pull)
 
 ### Code Example (Conceptual)
 
 ```python
-# YOU manage server lifecycle
-proc1 = start_agent_server(port=8080, workspace="/tmp/ws1")
-proc2 = start_agent_server(port=8081, workspace="/tmp/ws2")
-proc3 = start_agent_server(port=8082, workspace="/tmp/ws3")
+# Create a local bare origin from the current checkout
+origin = create_origin_repo(repo_source)
 
-# YOU setup git in each workspace
+# Clone isolated workspaces for each phase
 for ws in ["/tmp/ws1", "/tmp/ws2", "/tmp/ws3"]:
-    subprocess.run(["git", "clone", repo, ws])
+    subprocess.run(["git", "clone", origin, ws])
     subprocess.run(["git", "checkout", "-b", branch], cwd=ws)
 
-# Phase 1: Agent 1 implements
-send_task("http://localhost:8080/api/conversations", "implement shortener.py")
-wait_for_completion(8080)
+# Phase 1: implementation
+run_agent("/tmp/ws1", "implement shortener.py", llm=anthropic_llm)
+subprocess.run(["git", "push", "-u", "origin", branch], cwd="/tmp/ws1")
 
-# YOU push their work
-subprocess.run(["git", "push", "origin", branch], cwd="/tmp/ws1")
+# Phase 2: tests
+subprocess.run(["git", "fetch", "origin", branch], cwd="/tmp/ws2")
+subprocess.run(["git", "merge", "--ff-only", "FETCH_HEAD"], cwd="/tmp/ws2")
+run_agent("/tmp/ws2", "write pytest tests", llm=gemini_llm)
+ok = subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd="/tmp/ws2")
+if ok.returncode != 0:
+    run_agent("/tmp/ws2", "repair pytest failures", llm=gemini_llm)
 
-# YOU pull into workspace 2
-subprocess.run(["git", "pull", "origin", branch], cwd="/tmp/ws2")
-
-# Phase 2: Agent 2 tests
-send_task("http://localhost:8081/api/conversations", "write tests")
-wait_for_completion(8081)
-
-# YOU push again
-subprocess.run(["git", "push", "origin", branch], cwd="/tmp/ws2")
-
-# ... repeat for agent 3 ...
-
-# YOU cleanup
-proc1.terminate()
-proc2.terminate()
-proc3.terminate()
+# Phase 3: review
+subprocess.run(["git", "fetch", "origin", branch], cwd="/tmp/ws3")
+subprocess.run(["git", "merge", "--ff-only", "FETCH_HEAD"], cwd="/tmp/ws3")
+run_agent("/tmp/ws3", "review all .py files", llm=reviewer_llm)
 ```
 
-**Lines of code:** ~150
+**Code footprint:** High enough that the orchestration is the main point of the demo.
 
 ### Orchestration Responsibilities
 
 **YOU must manage:**
 
-1. **Server lifecycle:**
-   - Start N agent-server processes
-   - Allocate unique ports
-   - Monitor health
-   - Graceful shutdown
-
-2. **Workspace isolation:**
+1. **Workspace isolation:**
    - Create N temporary directories
-   - Clone repo into each
-   - Manage cleanup
+   - Mirror the source repo into a temporary bare origin
+   - Clone the origin into each workspace
+   - Preserve or clean up workspaces
 
-3. **Git coordination:**
+2. **Git coordination:**
    - Push after each agent completes
    - Pull before next agent starts
    - Handle merge conflicts
    - Branch management
 
+3. **Verification and retries:**
+   - Run local `pytest` after the test-writing phase
+   - Feed failure output back into a repair pass
+   - Decide when to abort after retries
+
 4. **Error handling:**
    - Detect agent failures
    - Retry logic
-   - Rollback on errors
-
-5. **Port management:**
-   - Avoid conflicts
-   - Firewall rules (if distributed)
+   - Preserve artifacts for inspection
 
 ### Pros & Cons
 
 **✅ Advantages:**
-- Full isolation (separate processes, filesystems)
+- Full isolation (separate filesystems and git clones)
 - Air-gapped capability (no Cloud dependency)
 - Can distribute across machines (with networking)
 - Agents can't interfere with each other
 
 **❌ Disadvantages:**
-- Complex orchestration (~150 lines)
-- Manual server management
+- Complex orchestration
 - Manual git coordination
 - No automatic cleanup
-- Port management overhead
 - No built-in observability
 
 ### When to Use
@@ -275,7 +252,6 @@ proc3.terminate()
 cloud_conversations.py (your laptop)
 │
 │  Orchestration Logic Only
-│  (~50 lines of code)
 │
 ├─► OpenHands Cloud/Enterprise API
     │
@@ -350,7 +326,7 @@ wait_for_completion(conv3['id'])
 # Cloud handles cleanup automatically
 ```
 
-**Lines of code:** ~50
+**Code footprint:** Thinner than Pattern 2 because Cloud handles the sandbox lifecycle.
 
 ### Cloud Handles
 
@@ -369,7 +345,7 @@ wait_for_completion(conv3['id'])
 
 **✅ Advantages:**
 - Full isolation (Cloud provisions separate sandboxes)
-- Simple code (~50 lines vs ~150 for Pattern 2)
+- Thinner local orchestration than Pattern 2
 - Automatic orchestration (Cloud does the hard work)
 - Web UI observability (watch agents work in real-time)
 - No infrastructure management
@@ -409,8 +385,8 @@ Enterprise orchestration gives you:
 - Simple code (like Pattern 1)
 - Plus: Observability, scalability, reliability
 
-This is why `cloud_conversations.py` (Pattern 3) is only ~50 lines while `multi_server_isolation.py`
-(Pattern 2) requires ~150 lines.
+This is why `cloud_conversations.py` stays relatively thin while
+`multi_server_isolation.py` carries the local orchestration burden directly.
 
 ---
 
@@ -422,18 +398,18 @@ Do you need full isolation between agents?
 ├─ No → Pattern 1 (Easy)
 │        - Simple local dev
 │        - Agents collaborate tightly
-│        - ~10 lines of code
+│        - Low orchestration overhead
 │
 └─ Yes → Can you use Enterprise?
          │
          ├─ Yes → Pattern 3 (Enterprise)
          │         - Production workflows
-         │         - ~50 lines of code
+         │         - Thin local wrapper
          │         - Automatic orchestration
          │
          └─ No → Pattern 2 (Isolated Local)
                   - Air-gapped environments
-                  - ~150 lines of code
+                  - High orchestration overhead
                   - Manual orchestration
 ```
 
@@ -459,7 +435,8 @@ Most teams follow this progression:
    - Custom platform requirements
 
 **Anti-pattern:** Starting with Pattern 2 before trying Pattern 1 or 3.
-Most teams don't need the complexity of managing multiple agent-servers locally.
+Most teams don't need the complexity of managing isolated local clones and git
+handoff logic themselves.
 
 ---
 
@@ -470,8 +447,8 @@ Most teams don't need the complexity of managing multiple agent-servers locally.
 - **agent-server** — Single agent runtime (Pattern 1, Pattern 2)
 - **app-server** — Multi-agent orchestration (Pattern 3, Enterprise)
 
-Pattern 2 runs multiple **agent-servers** to achieve what **app-server** does
-automatically in Pattern 3.
+Pattern 2 recreates, locally and manually, parts of what the **app-server**
+does automatically in Pattern 3.
 
 ### Canvas + Agent-Server Architecture (2026)
 
@@ -480,9 +457,9 @@ The new OpenHands architecture:
 - **Agent-Server** — OSS runtime (Patterns 1 & 2)
 - **Enterprise** — Cloud or self-hosted runtime (Pattern 3)
 
-All three patterns work with this architecture:
+All three patterns fit within this architecture:
 - Pattern 1: Canvas → local agent-server
-- Pattern 2: Canvas → multiple local agent-servers
+- Pattern 2: Canvas → local orchestrator plus isolated local workspaces
 - Pattern 3: Canvas → Enterprise backend (Cloud or self-hosted)
 
 ---
@@ -491,9 +468,9 @@ All three patterns work with this architecture:
 
 | Pattern | Isolation | Code | Infrastructure | Use Case |
 |---------|-----------|------|----------------|----------|
-| **1** | None | ~10 lines | None | Local dev, prototyping |
-| **2** | Full | ~150 lines | Manual | Air-gapped, custom platform |
-| **3** | Full | ~50 lines | Automatic (Cloud) | Production, enterprise |
+| **1** | None | Low | None | Local dev, prototyping |
+| **2** | Full | High | Manual | Air-gapped, custom platform |
+| **3** | Full | Medium | Automatic (Cloud) | Production, enterprise |
 
 **Recommendation:** Start with Pattern 1, scale to Pattern 3, only use Pattern 2
 if Cloud is not an option.

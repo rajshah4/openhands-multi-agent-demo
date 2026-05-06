@@ -6,18 +6,18 @@ Multi-Harness Orchestration Demo
 Each agent harness runs in its own OpenHands Cloud conversation.
 Communication happens through the git repo — just like real teams.
 
-  Conv 1 [Claude Code]  → implements, pushes to branch
-  Conv 2 [Gemini CLI]   → writes tests, pushes to branch
-  Conv 3 [OpenHands]    → reviews everything
+  Conv 1 [Claude Code prompt]  → implements, pushes to branch
+  Conv 2 [Gemini CLI prompt]   → writes tests, pushes to branch
+  Conv 3 [OpenHands]           → reviews everything
 
 Three vendors, three conversations, one repo. Watch each one live
 in the Cloud UI.
 
 Usage:
   export OPENHANDS_CLOUD_API_KEY="your-cloud-api-key"
-  python demo.py
-  python demo.py --task csv-tool
-  python demo.py --repo youruser/yourrepo
+  python cloud_conversations.py
+  python cloud_conversations.py --task csv-tool
+  python cloud_conversations.py --repo youruser/yourrepo
 """
 
 import argparse
