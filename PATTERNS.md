@@ -133,7 +133,6 @@ reviewer.run()
 - **Local development** — Quick iteration and testing
 - **Tight collaboration** — Agents need to work on same files
 - **Simple workflows** — Sequential or coordinated parallel work
-- **Cost-conscious** — No Cloud usage
 
 ---
 
@@ -363,7 +362,7 @@ wait_for_completion(conv3['id'])
 
 **❌ Disadvantages:**
 - Requires internet connectivity
-- Usage-based pricing
+- Requires Cloud or Enterprise connectivity
 - Less control over infrastructure
 - Vendor dependency (OpenHands Cloud)
 
@@ -373,7 +372,6 @@ wait_for_completion(conv3['id'])
 - **Enterprise** — Auditability, compliance, multi-user
 - **Observability** — Need to watch agents work
 - **Scale** — Many parallel agents
-- **Time > Money** — Prefer simple code over infrastructure management
 
 ---
 

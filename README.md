@@ -33,8 +33,8 @@ Every demo in this repo runs the same three-phase pipeline:
 | **Test** | Gemini CLI (Google) | Reads the code and adds pytest coverage |
 | **Review** | OpenHands | Reviews everything, reports findings with severity |
 
-You can swap harnesses within the pipeline — for example, run `--no-claude` to
-use OpenHands for all phases, or move the same workflow between shared
+You can swap harnesses within the pipeline to use OpenHands 
+for all phases, or move the same workflow between shared
 workspaces, isolated local clones, and managed cloud sandboxes.
 
 ## Three Patterns for Multi-Agent Orchestration
@@ -223,19 +223,6 @@ provisioning, cleanup, and observability for you.
 
 ---
 
-## Demo Results
-
-Output from a Pattern 3 (Enterprise) run (April 2026):
-
-| Phase | Harness | Cost | Output |
-|-------|---------|------|--------|
-| Implement | Claude Code | $0.048 | `shortener.py` — URL shortener with `shorten()`, `resolve()`, `stats()` |
-| Test | Gemini CLI | $0.000 | `test_shortener.py` + additional test files — 17 pytest tests |
-| Review | OpenHands | $0.338 | 12 findings including command injection vuln and hash collision bug |
-| **Total** | **3 vendors** | **$0.39** | |
-
----
-
 ## Files
 
 | File | What it does |
@@ -260,7 +247,7 @@ Each pattern represents a different **isolation vs. complexity** trade-off:
 - ✅ All SDK features (DelegateTool, ACP, file-based agents)
 - ❌ No isolation (agents share filesystem)
 
-**Pattern 2** provides local isolation but at high cost:
+**Pattern 2** provides local isolation with higher operational complexity:
 - ✅ Full isolation (separate workspaces and git clones)
 - ✅ Air-gapped capability
 - ❌ Complex local orchestration
@@ -297,7 +284,6 @@ This is why `cloud_conversations.py` stays relatively thin while
 - **Distributed architecture** — Agents communicate through artifacts (git), not tight coupling
 - **Vendor-agnostic** — Swap any agent without changing the pipeline
 - **Extensible** — Add new harnesses by adding entries to `HARNESS_INSTRUCTIONS`
-- **Cost-effective** — Full implement + test + review pipeline for under $0.40
 - **Pattern flexibility** — Start local (Pattern 1), scale to Cloud (Pattern 3)
 
 ## Links
