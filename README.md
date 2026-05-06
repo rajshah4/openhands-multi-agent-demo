@@ -41,7 +41,7 @@ decision trees, and migration paths.
 
 | | **Pattern 1: Easy** | **Pattern 2: Isolated Local** | **Pattern 3: Cloud** |
 |---|---|---|---|
-| **Script** | `pattern1_easy_shared_workspace.py` | `pattern2_isolated_local_servers.py` | `pattern3_cloud_multi_sandbox.py` |
+| **Script** | `shared_workspace.py` | `multi_server_isolation.py` | `cloud_conversations.py` |
 | **Sandboxes** | 1 shared | N isolated (manual) | N isolated (automatic) |
 | **Agent-Servers** | 1 instance | N instances | Cloud-managed |
 | **Coordination** | Filesystem | Git (you orchestrate) | Git (Cloud orchestrates) |
@@ -73,7 +73,7 @@ decision trees, and migration paths.
 - ✅ Web UI for each agent
 - ❌ Requires internet and Cloud API key
 
-## Pattern 1: Easy — Single Agent-Server (`pattern1_easy_shared_workspace.py`)
+## Pattern 1: Easy — Single Agent-Server (`shared_workspace.py`)
 
 All agents run in a **single shared workspace** using the
 [OpenHands SDK](https://docs.openhands.dev/sdk/overview). Claude Code and
@@ -81,7 +81,7 @@ Gemini CLI connect as subprocesses via
 [ACP (Agent Client Protocol)](https://docs.agentclientprotocol.com/).
 
 ```
-pattern1_easy_shared_workspace.py (your laptop)
+shared_workspace.py (your laptop)
 │
 └─► Single Agent-Server (one workspace)
      ├─ Agent 1 [Claude Code]  → writes shortener.py
@@ -106,9 +106,9 @@ export LLM_API_KEY="your-key"
 export ANTHROPIC_API_KEY="your-key"
 export GEMINI_API_KEY="your-key"
 
-python pattern1_easy_shared_workspace.py               # ACP pipeline with all three harnesses
-python pattern1_easy_shared_workspace.py --no-claude   # Pure OpenHands agent delegation
-python pattern1_easy_shared_workspace.py --cloud       # Run on Cloud infrastructure (still single sandbox)
+python shared_workspace.py               # ACP pipeline with all three harnesses
+python shared_workspace.py --no-claude   # Pure OpenHands agent delegation
+python shared_workspace.py --cloud       # Run on Cloud infrastructure (still single sandbox)
 ```
 
 When run with `--no-claude`, the SDK uses `DelegateTool` to spawn OpenHands
@@ -116,7 +116,7 @@ subagents — the LLM decides the flow rather than a hardcoded script.
 
 ---
 
-## Pattern 2: Isolated Local — Multiple Agent-Servers (`pattern2_isolated_local_servers.py`)
+## Pattern 2: Isolated Local — Multiple Agent-Servers (`multi_server_isolation.py`)
 
 **⚠️ NOT YET IMPLEMENTED** — Conceptual example showing multi-server orchestration.
 
@@ -124,7 +124,7 @@ Each agent runs in its **own agent-server instance** on different ports.
 You manually manage servers, workspaces, and git coordination.
 
 ```
-pattern2_isolated_local_servers.py (your laptop)
+multi_server_isolation.py (your laptop)
 │
 ├─► Agent-Server 1 (localhost:8080) → /tmp/claude_workspace
 │     └─ Agent: Claude Code → implements, pushes to git
@@ -146,13 +146,13 @@ manage server lifecycle, ports, workspaces, and git coordination.
 
 ---
 
-## Pattern 3: Cloud — Automatic Multi-Sandbox (`pattern3_cloud_multi_sandbox.py`)
+## Pattern 3: Cloud — Automatic Multi-Sandbox (`cloud_conversations.py`)
 
 Each agent runs in its **own OpenHands Cloud sandbox**. Cloud automatically
 provisions sandboxes, handles git coordination, and provides web UI for each agent.
 
 ```
-pattern3_cloud_multi_sandbox.py (your laptop)
+cloud_conversations.py (your laptop)
 │
 ├─► ☁️ Conversation 1   [Claude Code / Anthropic]
 │     └─ Cloud provisions sandbox, implements, pushes to repo
@@ -178,11 +178,11 @@ You write high-level workflow, Cloud handles infrastructure.
 pip install requests
 export OPENHANDS_CLOUD_API_KEY="your-cloud-api-key"
 
-python pattern3_cloud_multi_sandbox.py                          # default: url-shortener
-python pattern3_cloud_multi_sandbox.py --task csv-tool          # CSV-to-JSON converter
-python pattern3_cloud_multi_sandbox.py --task custom --custom-task "Build a rate limiter"
-python pattern3_cloud_multi_sandbox.py --repo youruser/yourrepo # your own repo
-python pattern3_cloud_multi_sandbox.py --no-claude              # OpenHands for all steps
+python cloud_conversations.py                          # default: url-shortener
+python cloud_conversations.py --task csv-tool          # CSV-to-JSON converter
+python cloud_conversations.py --task custom --custom-task "Build a rate limiter"
+python cloud_conversations.py --repo youruser/yourrepo # your own repo
+python cloud_conversations.py --no-claude              # OpenHands for all steps
 ```
 
 You'll see three conversation URLs — click each one to watch that agent work live
@@ -210,9 +210,9 @@ Output from a Pattern 3 (Cloud) run (April 2026):
 
 | File | What it does |
 |------|--------------|
-| `pattern3_cloud_multi_sandbox.py` | **Pattern 3** — Cloud conversations via API (automatic multi-sandbox) |
-| `pattern1_easy_shared_workspace.py` | **Pattern 1** — SDK with ACP (single shared workspace) |
-| `pattern2_isolated_local_servers.py` | **Pattern 2** — Multi agent-server orchestration (not yet implemented) |
+| `cloud_conversations.py` | **Pattern 3** — Cloud conversations via API (automatic multi-sandbox) |
+| `shared_workspace.py` | **Pattern 1** — SDK with ACP (single shared workspace) |
+| `multi_server_isolation.py` | **Pattern 2** — Multi agent-server orchestration (not yet implemented) |
 | `shortener.py` | Sample output — URL shortener generated by the pipeline |
 | `.agents/agents/code-reviewer.md` | File-based agent definition for the reviewer |
 
@@ -255,8 +255,8 @@ complexity. Cloud handles:
 - ✅ Observability (Web UI)
 - ✅ Error recovery
 
-This is why `pattern3_cloud_multi_sandbox.py` is only ~50 lines while a local multi-server equivalent
-(`pattern2_isolated_local_servers.py`) would be ~150 lines.
+This is why `cloud_conversations.py` is only ~50 lines while a local multi-server equivalent
+(`multi_server_isolation.py`) would be ~150 lines.
 
 ---
 

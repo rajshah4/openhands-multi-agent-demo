@@ -404,8 +404,8 @@ if __name__ == "__main__":
     print("required to run multiple agent-servers locally.")
     print()
     print("For production use:")
-    print("  • Pattern 1 (pattern1_easy_shared_workspace.py) — Simple local orchestration")
-    print("  • Pattern 3 (pattern3_cloud_multi_sandbox.py) — Cloud-managed multi-sandbox")
+    print("  • Pattern 1 (shared_workspace.py) — Simple local orchestration")
+    print("  • Pattern 3 (cloud_conversations.py) — Cloud-managed multi-sandbox")
     print("=" * 60)
     print()
     

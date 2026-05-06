@@ -13,9 +13,9 @@ trade-offs and when to use each approach.
 **Before:** Described "two approaches" (Cloud vs SDK)
 
 **After:** Describes "three patterns" with clear comparison table:
-- **Pattern 1: Easy** — Single agent-server (`pattern1_easy_shared_workspace.py`)
-- **Pattern 2: Isolated Local** — Multiple agent-servers (`pattern2_isolated_local_servers.py`)
-- **Pattern 3: Cloud** — Cloud-managed sandboxes (`pattern3_cloud_multi_sandbox.py`)
+- **Pattern 1: Easy** — Single agent-server (`shared_workspace.py`)
+- **Pattern 2: Isolated Local** — Multiple agent-servers (`multi_server_isolation.py`)
+- **Pattern 3: Cloud** — Cloud-managed sandboxes (`cloud_conversations.py`)
 
 **Key additions:**
 - Pattern comparison table at the top
@@ -39,7 +39,7 @@ trade-offs and when to use each approach.
 - Pattern 2: Isolated Local (150 lines, manual orchestration)
 - Pattern 3: Cloud (50 lines, automatic orchestration)
 
-### 3. Created `pattern2_isolated_local_servers.py`
+### 3. Created `multi_server_isolation.py`
 
 **New conceptual implementation** showing Pattern 2:
 - ~200 lines demonstrating multi-agent-server orchestration
@@ -98,24 +98,24 @@ Added ASCII diagrams showing:
 
 - ✏️  `README.md` — Restructured around three patterns
 - ✨ `PATTERNS.md` — New comprehensive patterns guide
-- ✨ `pattern2_isolated_local_servers.py` — New conceptual Pattern 2 implementation
+- ✨ `multi_server_isolation.py` — New conceptual Pattern 2 implementation
 - ✨ `CHANGELOG_PATTERNS.md` — This document
 
 ## Usage Examples
 
 ### Pattern 1 (Easy)
 ```bash
-python pattern1_easy_shared_workspace.py
+python shared_workspace.py
 ```
 
 ### Pattern 2 (Isolated Local)
 ```bash
-python pattern2_isolated_local_servers.py  # Conceptual - shows orchestration complexity
+python multi_server_isolation.py  # Conceptual - shows orchestration complexity
 ```
 
 ### Pattern 3 (Cloud)
 ```bash
-python pattern3_cloud_multi_sandbox.py
+python cloud_conversations.py
 ```
 
 ## Value Proposition

@@ -31,7 +31,7 @@ with OpenHands, their trade-offs, and when to use each.
 
 ┌─────────────────────────────────────────────────────────────┐
 │                  Pattern 3: Cloud                           │
-│  pattern3_cloud_multi_sandbox.py (~50 lines)                │
+│  cloud_conversations.py (~50 lines)                │
 │       │                                                     │
 │       ├─► ☁️  Sandbox 1 (auto) → Agent 1 + Web UI          │
 │       ├─► ☁️  Sandbox 2 (auto) → Agent 2 + Web UI          │
@@ -272,7 +272,7 @@ proc3.terminate()
 ### Architecture
 
 ```
-pattern3_cloud_multi_sandbox.py (your laptop)
+cloud_conversations.py (your laptop)
 │
 │  Orchestration Logic Only
 │  (~50 lines of code)
@@ -409,7 +409,7 @@ Cloud orchestration gives you:
 - Simple code (like Pattern 1)
 - Plus: Observability, scalability, reliability
 
-This is why `pattern3_cloud_multi_sandbox.py` (Pattern 3) is only ~50 lines while `pattern2_isolated_local_servers.py`
+This is why `cloud_conversations.py` (Pattern 3) is only ~50 lines while `multi_server_isolation.py`
 (Pattern 2) requires ~150 lines.
 
 ---
