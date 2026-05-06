@@ -1,47 +1,50 @@
 #!/usr/bin/env python3
 """
-Pattern 2: Isolated Local Multi-Agent Orchestration
-====================================================
+Pattern 2: Isolated Multi-Agent Orchestration
+==============================================
 
-This is a CONCEPTUAL IMPLEMENTATION showing how to orchestrate multiple
-agent-servers locally for full isolation without Cloud dependency.
-
-⚠️  WARNING: This pattern requires ~150 lines of orchestration code to manage:
-    - Multiple agent-server instances (different ports)
-    - Isolated workspaces (separate directories)
-    - Git coordination (manual push/pull between workspaces)
-    - Server lifecycle (startup, shutdown, cleanup)
-
-For most users, Pattern 1 (pipeline.py) or Pattern 3 (demo.py) are better choices.
-This pattern is useful for:
-- Air-gapped environments (no Cloud connectivity)
-- Learning multi-agent infrastructure
-- Building custom orchestration layers
+Run multiple agents in ISOLATED workspaces with MANUAL orchestration.
 
 Architecture:
-    
-    demo_local.py (orchestrator)
+    multi_server_isolation.py (your laptop)
     │
-    ├─► Agent-Server 1 (localhost:8080) → /tmp/claude_workspace
-    │     └─ Claude Code → implement shortener.py
-    │           └─ git push to feature-branch
+    ├─► Agent 1 [Claude Code]  → /tmp/workspace_claude/
+    │     └─ Implements shortener.py → git push
     │
-    ├─► Agent-Server 2 (localhost:8081) → /tmp/gemini_workspace  
-    │     └─ Gemini CLI → git pull, write tests
-    │           └─ git push to feature-branch
+    ├─► Agent 2 [Gemini CLI]   → /tmp/workspace_gemini/
+    │     └─ git pull → writes tests → git push
     │
-    └─► Agent-Server 3 (localhost:8082) → /tmp/reviewer_workspace
-          └─ OpenHands → git pull, review code
+    └─► Agent 3 [OpenHands]    → /tmp/workspace_reviewer/
+          └─ git pull → reviews code
+
+Key Differences from Pattern 1:
+- Each agent has its OWN isolated workspace
+- You manually orchestrate git push/pull between agents
+- More complex, but provides full isolation
+
+Usage:
+    python multi_server_isolation.py                    # Run full pipeline
+    python multi_server_isolation.py --no-claude        # Skip Claude (OpenHands only)
+    python multi_server_isolation.py --task csv-tool    # Different task
 """
 
-import subprocess
-import tempfile
-import requests
-import time
+import argparse
 import os
-import shutil
-import socket
-from typing import Dict, List
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+from typing import Optional
+
+try:
+    from openhands_ai import Agent, AgentConfig, Runtime, RuntimeConfig
+except ImportError:
+    print("❌ OpenHands SDK not installed")
+    print("\nInstall with:")
+    print("  pip install openhands-ai")
+    print("\nOr run Pattern 3 (cloud_conversations.py) which uses Cloud API instead")
+    sys.exit(1)
 
 
 # ============================================================================
@@ -51,87 +54,46 @@ from typing import Dict, List
 REPO_URL = "https://github.com/rajshah4/openhands-demo-repo.git"
 BRANCH_NAME = f"multi-agent-{int(time.time())}"
 
-AGENT_CONFIGS = [
-    {
-        "name": "Claude Code (Implementer)",
-        "port": None,  # Will be auto-assigned
-        "workspace": None,  # Will be created
-        "task": "Create shortener.py with shorten(), resolve(), and stats() functions",
-        "harness": "claude-code",
+TASKS = {
+    "url-shortener": {
+        "implement": "Create a file shortener.py with shorten(url), resolve(short_code), and stats() functions. Use in-memory dict storage.",
+        "test": "Write comprehensive pytest tests for shortener.py. Cover all three functions with edge cases.",
+        "review": "Review all Python files. Check for bugs, security vulnerabilities, and code quality issues. Be thorough.",
     },
-    {
-        "name": "Gemini CLI (Tester)",
-        "port": None,
-        "workspace": None,
-        "task": "Write comprehensive pytest tests for shortener.py. Cover all functions.",
-        "harness": "gemini-cli",
+    "csv-tool": {
+        "implement": "Create csv_to_json.py with a convert(csv_path, json_path) function. Handle headers and types.",
+        "test": "Write pytest tests for csv_to_json.py. Test empty files, headers, type conversion.",
+        "review": "Review all Python files for bugs, errors, and quality issues.",
     },
-    {
-        "name": "OpenHands (Reviewer)",
-        "port": None,
-        "workspace": None,
-        "task": "Review all Python files. Check for bugs, security issues, and style.",
-        "harness": "openhands",
-    },
-]
+}
 
 
 # ============================================================================
-# Helper Functions
+# Git Helper Functions
 # ============================================================================
 
-def find_free_port() -> int:
-    """Find an available port on localhost."""
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind(('', 0))
-        s.listen(1)
-        port = s.getsockname()[1]
-    return port
-
-
-def start_agent_server(port: int, workspace: str) -> subprocess.Popen:
-    """
-    Start an agent-server instance on the specified port.
-    
-    NOTE: This is conceptual. The actual command depends on how
-    agent-server is packaged and configured.
-    """
-    print(f"  🚀 Starting agent-server on port {port}...")
-    print(f"     Workspace: {workspace}")
-    
-    env = os.environ.copy()
-    env["AGENT_SERVER_PORT"] = str(port)
-    env["WORKSPACE_DIR"] = workspace
-    
-    # Conceptual command - adjust based on actual agent-server CLI
-    proc = subprocess.Popen(
-        ["openhands", "agent-server", "--port", str(port), "--workspace", workspace],
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    
-    # Wait for server to be ready
-    for attempt in range(30):
-        try:
-            resp = requests.get(f"http://localhost:{port}/health", timeout=1)
-            if resp.status_code == 200:
-                print(f"  ✅ Agent-server ready on port {port}")
-                return proc
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            time.sleep(1)
-    
-    proc.terminate()
-    raise RuntimeError(f"Failed to start agent-server on port {port}")
-
-
-def setup_workspace(workspace: str, repo_url: str, branch: str) -> None:
-    """Clone repo and checkout branch in the workspace."""
-    print(f"  📦 Setting up workspace: {workspace}")
+def setup_git_workspace(workspace: Path, repo_url: str, branch: str) -> None:
+    """Clone repo and create branch in isolated workspace."""
+    print(f"  📦 Setting up workspace: {workspace.name}")
     
     # Clone repo
     subprocess.run(
-        ["git", "clone", repo_url, workspace],
+        ["git", "clone", repo_url, str(workspace)],
+        check=True,
+        capture_output=True,
+        text=True
+    )
+    
+    # Configure git
+    subprocess.run(
+        ["git", "config", "user.name", "openhands"],
+        cwd=workspace,
+        check=True,
+        capture_output=True
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "openhands@all-hands.dev"],
+        cwd=workspace,
         check=True,
         capture_output=True
     )
@@ -144,54 +106,12 @@ def setup_workspace(workspace: str, repo_url: str, branch: str) -> None:
         capture_output=True
     )
     
-    print(f"  ✅ Workspace ready: {branch}")
+    print(f"  ✅ Workspace ready on branch: {branch}")
 
 
-def send_task_to_agent(port: int, task: str, workspace: str) -> str:
-    """
-    Start a conversation on the agent-server and wait for completion.
-    
-    NOTE: This is conceptual. The actual API depends on agent-server's
-    REST API specification.
-    """
-    print(f"  📤 Sending task to localhost:{port}")
-    print(f"     Task: {task[:60]}...")
-    
-    # Start conversation
-    resp = requests.post(
-        f"http://localhost:{port}/api/conversations",
-        json={
-            "initial_message": task,
-            "workspace": workspace,
-        },
-        timeout=10
-    )
-    resp.raise_for_status()
-    
-    conv_id = resp.json()["conversation_id"]
-    print(f"  🆔 Conversation ID: {conv_id}")
-    
-    # Poll for completion
-    while True:
-        status_resp = requests.get(
-            f"http://localhost:{port}/api/conversations/{conv_id}",
-            timeout=10
-        )
-        status = status_resp.json()["status"]
-        
-        if status == "finished":
-            print(f"  ✅ Task completed")
-            return conv_id
-        elif status in ["error", "stuck"]:
-            raise RuntimeError(f"Task failed with status: {status}")
-        
-        print(f"  ⏳ Status: {status}...")
-        time.sleep(5)
-
-
-def git_push(workspace: str, branch: str) -> None:
-    """Commit and push changes from workspace."""
-    print(f"  📤 Pushing changes from {os.path.basename(workspace)}...")
+def git_push_changes(workspace: Path, branch: str, agent_name: str) -> bool:
+    """Commit and push all changes from workspace."""
+    print(f"  📤 Pushing changes from {agent_name}...")
     
     # Stage all changes
     subprocess.run(
@@ -201,7 +121,7 @@ def git_push(workspace: str, branch: str) -> None:
         capture_output=True
     )
     
-    # Commit
+    # Check if there are changes
     result = subprocess.run(
         ["git", "diff", "--cached", "--quiet"],
         cwd=workspace,
@@ -210,13 +130,12 @@ def git_push(workspace: str, branch: str) -> None:
     
     if result.returncode != 0:  # There are changes
         subprocess.run(
-            ["git", "commit", "-m", f"Agent changes from {os.path.basename(workspace)}"],
+            ["git", "commit", "-m", f"Changes from {agent_name}"],
             cwd=workspace,
             check=True,
             capture_output=True
         )
         
-        # Push
         subprocess.run(
             ["git", "push", "origin", branch],
             cwd=workspace,
@@ -224,13 +143,15 @@ def git_push(workspace: str, branch: str) -> None:
             capture_output=True
         )
         print(f"  ✅ Changes pushed to {branch}")
+        return True
     else:
         print(f"  ℹ️  No changes to push")
+        return False
 
 
-def git_pull(workspace: str, branch: str) -> None:
+def git_pull_changes(workspace: Path, branch: str, agent_name: str) -> None:
     """Pull latest changes into workspace."""
-    print(f"  📥 Pulling changes into {os.path.basename(workspace)}...")
+    print(f"  📥 Pulling latest changes for {agent_name}...")
     
     subprocess.run(
         ["git", "pull", "origin", branch],
@@ -239,179 +160,272 @@ def git_pull(workspace: str, branch: str) -> None:
         capture_output=True
     )
     
-    print(f"  ✅ Changes pulled from {branch}")
-
-
-def cleanup(configs: List[Dict], processes: List[subprocess.Popen]) -> None:
-    """Stop all agent-servers and clean up workspaces."""
-    print("\n" + "=" * 60)
-    print("  🧹 Cleanup")
-    print("=" * 60)
-    
-    # Terminate all processes
-    for proc in processes:
-        if proc and proc.poll() is None:
-            proc.terminate()
-            try:
-                proc.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-    
-    print("  ✅ All agent-servers stopped")
-    
-    # Optional: Remove temporary workspaces
-    # Uncomment to enable auto-cleanup
-    # for config in configs:
-    #     if config["workspace"]:
-    #         shutil.rmtree(config["workspace"], ignore_errors=True)
-    #         print(f"  🗑️  Removed {config['workspace']}")
+    print(f"  ✅ Changes synced from {branch}")
 
 
 # ============================================================================
-# Main Orchestration
+# Agent Runner
 # ============================================================================
 
-def run_multi_agent_pipeline():
+def run_agent(
+    workspace: Path,
+    task: str,
+    agent_name: str,
+    llm_config: Optional[dict] = None
+) -> None:
     """
-    Run the three-phase pipeline across three isolated agent-servers.
+    Run a single agent in an isolated workspace.
     
-    This demonstrates the manual orchestration required for Pattern 2.
+    Args:
+        workspace: Path to isolated workspace
+        task: Task description for the agent
+        agent_name: Display name for logs
+        llm_config: LLM configuration (provider, model, api_key)
     """
-    print("=" * 60)
-    print("  Pattern 2: Isolated Local Multi-Agent Orchestration")
-    print("  Multiple Agent-Servers · Full Isolation · Manual Coordination")
-    print("=" * 60)
+    print(f"\n{'='*60}")
+    print(f"  {agent_name}")
+    print(f"{'='*60}")
+    print(f"  Workspace: {workspace}")
+    print(f"  Task: {task}")
+    print(f"{'─'*60}")
     
-    processes = []
+    # Create runtime with isolated workspace
+    runtime_config = RuntimeConfig(
+        workspace_dir=str(workspace),
+        sandbox_type="local",
+    )
+    runtime = Runtime(config=runtime_config)
+    
+    # Create agent
+    agent_config = AgentConfig(llm_config=llm_config) if llm_config else AgentConfig()
+    agent = Agent(config=agent_config, runtime=runtime)
     
     try:
-        # ================================================================
-        # Phase 0: Setup Infrastructure
-        # ================================================================
-        print("\n" + "─" * 60)
-        print("  PHASE 0: Infrastructure Setup")
-        print("─" * 60)
+        # Send task and wait for completion
+        print(f"  🤖 Starting agent...")
+        response = agent.run(task)
         
-        for config in AGENT_CONFIGS:
-            # Allocate port
-            config["port"] = find_free_port()
-            
-            # Create workspace
-            config["workspace"] = tempfile.mkdtemp(
-                prefix=f"agent_{config['name'].split()[0].lower()}_"
-            )
-            
-            # Setup git repo in workspace
-            setup_workspace(config["workspace"], REPO_URL, BRANCH_NAME)
-            
-            # Start agent-server
-            proc = start_agent_server(config["port"], config["workspace"])
-            processes.append(proc)
-            
+        print(f"  ✅ Agent completed")
+        
+        # Show any files created
+        py_files = list(workspace.glob("*.py"))
+        if py_files:
+            print(f"  📄 Files created/modified:")
+            for f in py_files:
+                print(f"     • {f.name}")
+    
+    finally:
+        runtime.cleanup()
+
+
+# ============================================================================
+# Main Pipeline
+# ============================================================================
+
+def run_multi_agent_pipeline(task_name: str = "url-shortener", use_claude: bool = True):
+    """
+    Run the multi-agent pipeline with full isolation.
+    
+    This is the complex orchestration that Pattern 2 requires.
+    Each agent gets its own workspace and you manually coordinate via git.
+    """
+    print("="*60)
+    print("  Pattern 2: Isolated Multi-Agent Orchestration")
+    print("  Multiple Workspaces · Full Isolation · Manual Git Coordination")
+    print("="*60)
+    
+    if task_name not in TASKS:
+        print(f"\n❌ Unknown task: {task_name}")
+        print(f"Available tasks: {', '.join(TASKS.keys())}")
+        sys.exit(1)
+    
+    tasks = TASKS[task_name]
+    
+    # Create isolated workspaces
+    print(f"\n{'─'*60}")
+    print("  PHASE 0: Setup Isolated Workspaces")
+    print(f"{'─'*60}")
+    
+    workspaces = {
+        "claude": Path(tempfile.mkdtemp(prefix="workspace_claude_")),
+        "gemini": Path(tempfile.mkdtemp(prefix="workspace_gemini_")),
+        "reviewer": Path(tempfile.mkdtemp(prefix="workspace_reviewer_")),
+    }
+    
+    try:
+        # Setup each workspace with git
+        for name, workspace in workspaces.items():
+            setup_git_workspace(workspace, REPO_URL, BRANCH_NAME)
             print()
         
         # ================================================================
         # Phase 1: Implementation
         # ================================================================
-        print("\n" + "─" * 60)
-        print("  PHASE 1: Claude Code → Implementation")
-        print("─" * 60)
+        print(f"\n{'─'*60}")
+        if use_claude:
+            print("  PHASE 1: Claude Code → Implementation")
+        else:
+            print("  PHASE 1: OpenHands → Implementation")
+        print(f"{'─'*60}")
         
-        claude_config = AGENT_CONFIGS[0]
-        send_task_to_agent(
-            claude_config["port"],
-            claude_config["task"],
-            claude_config["workspace"]
-        )
+        if use_claude:
+            claude_config = {
+                "provider": "anthropic",
+                "model": "claude-3-7-sonnet-20250219",
+                "api_key": os.getenv("ANTHROPIC_API_KEY"),
+            }
+            if not claude_config["api_key"]:
+                print("⚠️  ANTHROPIC_API_KEY not set, falling back to OpenHands")
+                use_claude = False
         
-        # Push implementation to git
-        git_push(claude_config["workspace"], BRANCH_NAME)
+        if use_claude:
+            run_agent(
+                workspaces["claude"],
+                tasks["implement"],
+                "Claude Code (Implementer)",
+                llm_config=claude_config
+            )
+            git_push_changes(workspaces["claude"], BRANCH_NAME, "Claude")
+        else:
+            run_agent(
+                workspaces["claude"],
+                tasks["implement"],
+                "OpenHands (Implementer)",
+                llm_config=None
+            )
+            git_push_changes(workspaces["claude"], BRANCH_NAME, "OpenHands")
         
         # ================================================================
         # Phase 2: Testing
         # ================================================================
-        print("\n" + "─" * 60)
+        print(f"\n{'─'*60}")
         print("  PHASE 2: Gemini CLI → Write Tests")
-        print("─" * 60)
+        print(f"{'─'*60}")
         
-        gemini_config = AGENT_CONFIGS[1]
+        # Pull implementation into Gemini's isolated workspace
+        git_pull_changes(workspaces["gemini"], BRANCH_NAME, "Gemini")
         
-        # Pull Claude's implementation
-        git_pull(gemini_config["workspace"], BRANCH_NAME)
+        gemini_config = {
+            "provider": "google",
+            "model": "gemini-2.0-flash-exp",
+            "api_key": os.getenv("GEMINI_API_KEY"),
+        }
         
-        # Run test generation
-        send_task_to_agent(
-            gemini_config["port"],
-            gemini_config["task"],
-            gemini_config["workspace"]
-        )
+        if gemini_config["api_key"]:
+            run_agent(
+                workspaces["gemini"],
+                tasks["test"],
+                "Gemini CLI (Tester)",
+                llm_config=gemini_config
+            )
+        else:
+            print("⚠️  GEMINI_API_KEY not set, falling back to OpenHands")
+            run_agent(
+                workspaces["gemini"],
+                tasks["test"],
+                "OpenHands (Tester)",
+                llm_config=None
+            )
         
-        # Push tests to git
-        git_push(gemini_config["workspace"], BRANCH_NAME)
+        git_push_changes(workspaces["gemini"], BRANCH_NAME, "Gemini")
         
         # ================================================================
         # Phase 3: Review
         # ================================================================
-        print("\n" + "─" * 60)
+        print(f"\n{'─'*60}")
         print("  PHASE 3: OpenHands → Code Review")
-        print("─" * 60)
+        print(f"{'─'*60}")
         
-        reviewer_config = AGENT_CONFIGS[2]
+        # Pull all changes into reviewer's isolated workspace
+        git_pull_changes(workspaces["reviewer"], BRANCH_NAME, "Reviewer")
         
-        # Pull all changes
-        git_pull(reviewer_config["workspace"], BRANCH_NAME)
-        
-        # Run review
-        send_task_to_agent(
-            reviewer_config["port"],
-            reviewer_config["task"],
-            reviewer_config["workspace"]
+        run_agent(
+            workspaces["reviewer"],
+            tasks["review"],
+            "OpenHands (Reviewer)",
+            llm_config=None
         )
         
         # ================================================================
         # Summary
         # ================================================================
-        print("\n" + "=" * 60)
+        print(f"\n{'='*60}")
         print("  ✅ Pipeline Complete")
-        print("=" * 60)
+        print(f"{'='*60}")
         
         print(f"\n  Branch: {BRANCH_NAME}")
         print(f"  Repo: {REPO_URL}")
-        print("\n  Agent-Server Workspaces:")
-        for config in AGENT_CONFIGS:
-            print(f"    • {config['name']:30s} → {config['workspace']}")
         
-        print("\n  💡 Workspaces preserved for inspection.")
-        print("     Delete manually when done.")
+        print("\n  Isolated Workspaces:")
+        print(f"    • Claude:   {workspaces['claude']}")
+        print(f"    • Gemini:   {workspaces['gemini']}")
+        print(f"    • Reviewer: {workspaces['reviewer']}")
         
+        print("\n  💡 Each agent had its own isolated workspace.")
+        print("     Git was used to manually coordinate changes.")
+        print("\n  🧹 Workspaces preserved for inspection.")
+        print("     Delete manually when done:")
+        for workspace in workspaces.values():
+            print(f"       rm -rf {workspace}")
+    
     except Exception as e:
-        print(f"\n  ❌ Error: {e}")
+        print(f"\n❌ Error: {e}")
+        import traceback
+        traceback.print_exc()
         raise
     
     finally:
-        cleanup(AGENT_CONFIGS, processes)
+        print(f"\n{'─'*60}")
+        print("  Note: Workspaces NOT auto-cleaned for inspection")
+        print(f"{'─'*60}")
 
 
 # ============================================================================
-# Entry Point
+# CLI
 # ============================================================================
 
-if __name__ == "__main__":
-    print("\n⚠️  CONCEPTUAL IMPLEMENTATION")
-    print("=" * 60)
-    print("This script demonstrates Pattern 2 architecture but is NOT")
-    print("fully implemented. It shows the ~150 lines of orchestration")
-    print("required to run multiple agent-servers locally.")
+def main():
+    parser = argparse.ArgumentParser(
+        description="Pattern 2: Isolated multi-agent orchestration with manual git coordination"
+    )
+    parser.add_argument(
+        "--task",
+        default="url-shortener",
+        choices=list(TASKS.keys()),
+        help="Which task to run"
+    )
+    parser.add_argument(
+        "--no-claude",
+        action="store_true",
+        help="Use OpenHands for all phases (no Claude)"
+    )
+    
+    args = parser.parse_args()
+    
+    print("\n⚠️  PATTERN 2: ISOLATED MULTI-AGENT")
+    print("="*60)
+    print("This pattern requires ~300 lines of orchestration code.")
+    print("Each agent runs in an isolated workspace.")
+    print("You manually coordinate with git push/pull.")
     print()
-    print("For production use:")
-    print("  • Pattern 1 (shared_workspace.py) — Simple local orchestration")
-    print("  • Pattern 3 (cloud_conversations.py) — Cloud-managed multi-sandbox")
-    print("=" * 60)
+    print("Complexity: HIGH (~300 lines of orchestration)")
+    print()
+    print("Consider simpler alternatives:")
+    print("  • Pattern 1 (shared_workspace.py) — Shared workspace, simple")
+    print("  • Pattern 3 (cloud_conversations.py) — Cloud-managed, automatic")
+    print("="*60)
     print()
     
-    response = input("Continue with conceptual demo? [y/N]: ")
+    response = input("Continue with Pattern 2? [y/N]: ")
     if response.lower() != 'y':
         print("Exiting.")
-        exit(0)
+        sys.exit(0)
     
-    run_multi_agent_pipeline()
+    run_multi_agent_pipeline(
+        task_name=args.task,
+        use_claude=not args.no_claude
+    )
+
+
+if __name__ == "__main__":
+    main()
