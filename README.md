@@ -3,7 +3,7 @@
 > OpenHands lets you choose how agents share state, how they are isolated, and
 > how the workflow is orchestrated.
 
-![OpenHands control plane for multiple agent harnesses](assets/openhands-control-plane.png)
+![OpenHands control plane for multiple agent harnesses](assets/openhands-control-plane-v2.png)
 
 The diagram above shows the control-plane view: OpenHands coordinates the
 workflow while different harnesses and runtime models sit underneath it.
