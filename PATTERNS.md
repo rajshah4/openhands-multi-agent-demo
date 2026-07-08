@@ -9,8 +9,9 @@ the runtime model changes: agents can share a workspace directly, hand off state
 through git across isolated local clones, or run in enterprise-managed cloud
 sandboxes.
 
-The sections below focus on the trade-offs between those patterns and when to
-use each one.
+The sections below focus on runtime trade-offs and when to use each one. For
+workflow shapes such as parent-child delegation and polling continuation loops,
+see [`WORKFLOW_PATTERNS.md`](WORKFLOW_PATTERNS.md).
 
 ## Quick Visual Guide
 
@@ -57,6 +58,19 @@ use each one.
 | **1. Easy** | Shared workspace | None | Low | None |
 | **2. Isolated Local** | Git handoff | Full | High | Manual |
 | **3. Enterprise** | Git handoff | Full | Medium | Automatic |
+
+## Runtime Pattern vs Workflow Pattern
+
+Runtime patterns answer where agents run. Workflow patterns answer how work
+advances. Keep those choices separate:
+
+- Use this guide to choose shared workspace, isolated local clones, or
+  Enterprise-managed sandboxes.
+- Use `WORKFLOW_PATTERNS.md` to choose linear pipeline, parent-child
+  supervisor, or polling continuation loop.
+
+Any workflow pattern can be implemented on top of any runtime pattern, though
+some combinations are more natural than others.
 
 ---
 

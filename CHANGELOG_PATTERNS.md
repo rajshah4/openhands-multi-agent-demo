@@ -6,6 +6,16 @@ Updated the repository to clearly document **three architectural patterns** for
 multi-agent orchestration with OpenHands, clarifying the isolation vs. complexity
 trade-offs and when to use each approach.
 
+## Current Direction
+
+The repo also includes workflow patterns beyond harness/runtime selection:
+
+- **Linear pipeline**: implement -> test -> review.
+- **Parent-child supervisor**: one parent conversation delegates bounded child
+  conversations and gates on their final responses.
+- **Polling continuation loop**: a scheduled orchestrator wakes every 15
+  minutes, checks durable state, spawns at most one worker, logs, and exits.
+
 ## What Changed
 
 ### 1. Updated `README.md`
