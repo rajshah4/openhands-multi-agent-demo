@@ -196,7 +196,11 @@ agents, and you do not have to pick one harness for everything:
   it later by task id with context preserved. Parent-child in miniature -
   right for bounded expert help mid-task (review this diff, plan these
   tests), not a replacement for child conversations when you want separate
-  sandboxes and visible audit trails. With the SDK's experimental
+  sandboxes and visible audit trails. Another reason to keep a real
+  multi-agent boundary: a full worker conversation can still use subagents
+  internally during a complex build, but a TaskToolSet subagent should be
+  treated as a leaf delegate - it is not the place to recursively spawn more
+  subagents. With the SDK's experimental
   [parallel tool execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution)
   (`tool_concurrency_limit > 1`), a parent can even fan out several subagent
   calls in one step. The comparison table is in

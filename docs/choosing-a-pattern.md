@@ -98,6 +98,15 @@ sandboxes, or a customer-facing audit trail matter. The two compose: a
 Pattern 1 child (or a polling worker) can use subagents internally for its
 own lookups without the orchestrator ever knowing.
 
+That composition is one reason this repo still leads with multi-agent
+workflows instead of modeling everything as subagents. A full worker
+conversation can use subagents inside its own task - for example, a build
+worker might ask a reviewer or test planner subagent for help before it
+returns its final status. A TaskToolSet subagent, however, should be treated
+as a leaf delegate. In the OpenHands subagent model, the parent conversation
+owns the delegation layer; subagents are not the right boundary for recursive
+subagent orchestration.
+
 A related but different knob is
 [parallel tool execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution):
 setting `tool_concurrency_limit` on the `Agent` (default `1`, i.e.
