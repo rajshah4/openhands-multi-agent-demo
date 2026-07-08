@@ -3,8 +3,8 @@ __pycache__/
 .venv/
 
 # pattern run artifacts (regenerated every run)
-patterns/supervisor/runs/
-patterns/reconciler/state*.json
-patterns/reconciler/WORKLOG*.md
-patterns/reconciler/results/
-patterns/reconciler/INSTRUCTIONS.md
+patterns/parent-child/runs/
+patterns/polling/state*.json
+patterns/polling/WORKLOG*.md
+patterns/polling/results/
+patterns/polling/INSTRUCTIONS.md

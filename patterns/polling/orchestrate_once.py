@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reconciler pattern: a stateless orchestrator tick that keeps a backlog moving, forever.
+"""Polling-loop pattern: a scheduled, stateless orchestrator tick that keeps a backlog moving, forever.
 
 Each run of this script is ONE wake-up (a "tick"). A tick:
 
@@ -14,8 +14,8 @@ Each run of this script is ONE wake-up (a "tick"). A tick:
 
 The orchestrator holds no memory between ticks. Everything it knows lives in
 durable state on disk (state.json + WORKLOG.md), so any tick can crash and the
-next one recovers. That is the reconciliation-loop idea: observe state, take at
-most one convergent action, exit.
+next one recovers. (Kubernetes people know this as a reconciliation loop:
+observe state, take at most one convergent action, exit.)
 
 Run ticks by hand to watch the state machine advance:
 

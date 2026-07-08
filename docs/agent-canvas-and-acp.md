@@ -18,8 +18,8 @@ Both pattern scripts run on Canvas with a flag - no code changes:
 
 ```bash
 # local Agent Canvas running at localhost:8000
-python3 patterns/supervisor/run_supervisor.py --runtime canvas
-python3 patterns/reconciler/orchestrate_once.py --runtime canvas
+python3 patterns/parent-child/run_supervisor.py --runtime canvas
+python3 patterns/polling/orchestrate_once.py --runtime canvas
 ```
 
 Every child/worker appears as its own conversation in the Canvas UI, openable
@@ -45,9 +45,11 @@ genuinely different APIs. The pattern scripts never notice - both backends in
 | Worker state | Isolated sandbox per conversation | Shared local working tree (`worktree: false`) |
 
 The last row is the one that changes behavior, not just plumbing: on Canvas,
-children share a working tree, so files transfer directly between cells but
-runs are not parallel-safe. The pattern scripts point Canvas workers at a
-directory inside the gitignored run/results area to keep them off your repo.
+workers run on your machine. This demo points them at a shared scratch
+directory (inside the gitignored run/results area), so files transfer
+directly between cells but runs are not parallel-safe. When a Canvas
+conversation attaches a git repository, it can instead use a separate git
+worktree per conversation for isolation.
 See [the state question](choosing-a-pattern.md#the-state-question-where-worker-output-goes).
 
 ## ACP: Any Harness in the Worker Slot
@@ -95,7 +97,7 @@ So the harness decision collapses to a per-worker-slot choice:
 | Worker slot filled by | How | When |
 | --- | --- | --- |
 | OpenHands conversation (default) | `patterns/common/openhands_conversations.py` | Full sandbox, repo access, skills, the managed path |
-| Local Canvas conversation | sdlc repo's `agent_canvas_delegate.py` | Demos and development where seeing the graph matters |
+| Local Canvas conversation | `patterns/common/canvas_conversations.py` (`--runtime canvas`) | Demos and development where seeing the graph matters |
 | ACP harness (Claude Code, Gemini CLI, ...) | `ACPAgent` via the SDK | A specific harness is best-in-class for one cell, or the team already lives in it |
 
 Swap one worker without touching the pattern. That is the actual value of

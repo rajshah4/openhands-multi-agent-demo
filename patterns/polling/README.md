@@ -1,4 +1,4 @@
-# Pattern 2: Reconciler (Polling Loop)
+# Pattern 2: Polling Loop
 
 A stateless orchestrator wakes on a schedule, takes at most one action, and
 exits. The work outlives the orchestrator - **durable state is the memory**.
@@ -11,9 +11,10 @@ wake -> read state -> decide -> (spawn | record | quiet) -> log -> exit
 
 Use this pattern when the work is an ongoing backlog rather than one request:
 work that spans hours or days, waits on slow externals (CI, human review), and
-must survive any individual run crashing. If you know Kubernetes, this is a
-controller loop: observe actual state, compare to desired state, take one
-convergent action, exit.
+must survive any individual run crashing. The orchestrator never waits for a
+worker - it checks back on the next tick. (If you know Kubernetes, this is a
+controller or reconciliation loop: observe actual state, compare to desired
+state, take one convergent action, exit.)
 
 ## Run It
 
@@ -81,7 +82,7 @@ on a schedule. Two options:
 **Cron on any machine that has the repo:**
 
 ```cron
-*/15 * * * * cd /path/to/repo/patterns/reconciler && python3 orchestrate_once.py >> cron.log 2>&1
+*/15 * * * * cd /path/to/repo/patterns/polling && python3 orchestrate_once.py >> cron.log 2>&1
 ```
 
 **An OpenHands scheduled automation** (cron trigger, no machine of your own):
@@ -120,4 +121,4 @@ GitHub queries and (optionally) the decision function for a prompt.
 | `backlog.json` | GitHub issues/labels, Jira tickets, a queue, a database table |
 | The worker prompt | Any bounded job; workers can be OpenHands conversations or ACP-connected harnesses - see [Agent Canvas and ACP](../../docs/agent-canvas-and-acp.md) |
 | One worker slot | Parallel slots for non-conflicting work (ohtv runs issue-work and PR-work slots side by side) |
-| The worker itself | An entire supervisor lifecycle - see [composition](../../docs/choosing-a-pattern.md#compose-them) |
+| The worker itself | An entire parent-child lifecycle - see [composition](../../docs/choosing-a-pattern.md#compose-them) |

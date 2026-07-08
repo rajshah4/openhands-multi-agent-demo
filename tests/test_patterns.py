@@ -13,8 +13,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 COMMON = ROOT / "patterns" / "common"
-SUPERVISOR = ROOT / "patterns" / "supervisor"
-RECONCILER = ROOT / "patterns" / "reconciler"
+PARENT_CHILD = ROOT / "patterns" / "parent-child"
+POLLING = ROOT / "patterns" / "polling"
 
 
 def load_module(path: Path):
@@ -88,11 +88,11 @@ def test_canvas_payload_shape() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Supervisor pattern
+# Parent-child pattern
 # ---------------------------------------------------------------------------
 
-def test_supervisor_workcell_prompts_have_contract_sections() -> None:
-    prompts = sorted((SUPERVISOR / "prompts" / "workcells").glob("*.md"))
+def test_parent_child_workcell_prompts_have_contract_sections() -> None:
+    prompts = sorted((PARENT_CHILD / "prompts" / "workcells").glob("*.md"))
     assert {path.stem for path in prompts} == {"plan", "build", "check"}
     for path in prompts:
         text = path.read_text(encoding="utf-8")
@@ -105,22 +105,22 @@ def test_supervisor_workcell_prompts_have_contract_sections() -> None:
         assert "final response" in text.lower()  # the sandbox/state-model teaching point
 
 
-def test_supervisor_gate_vocabulary_matches_prompts() -> None:
-    module = load_module(SUPERVISOR / "run_supervisor.py")
+def test_parent_child_gate_vocabulary_matches_prompts() -> None:
+    module = load_module(PARENT_CHILD / "run_supervisor.py")
     assert module.DEFAULT_CELLS == ("plan", "build", "check")
     assert module.CONTINUE_STATUSES["check"] == {"pass", "findings"}
 
 
-def test_supervisor_dry_run_writes_run_dir(tmp_path: Path) -> None:
+def test_parent_child_dry_run_writes_run_dir(tmp_path: Path) -> None:
     result = subprocess.run(
-        [sys.executable, str(SUPERVISOR / "run_supervisor.py"), "--dry-run", "--run-id", "test-dry-run"],
+        [sys.executable, str(PARENT_CHILD / "run_supervisor.py"), "--dry-run", "--run-id", "test-dry-run"],
         capture_output=True,
         text=True,
         timeout=60,
     )
     assert result.returncode == 0, result.stderr
     assert '"status": "dry-run"' in result.stdout
-    run_dir = SUPERVISOR / "runs" / "test-dry-run"
+    run_dir = PARENT_CHILD / "runs" / "test-dry-run"
     assert (run_dir / "lifecycle-report.md").exists()
     assert (run_dir / "plan.prompt.md").exists()
     # cleanup
@@ -130,31 +130,31 @@ def test_supervisor_dry_run_writes_run_dir(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Reconciler pattern
+# Polling-loop pattern
 # ---------------------------------------------------------------------------
 
-def test_reconciler_backlog_seed_is_valid() -> None:
-    seed = json.loads((RECONCILER / "backlog.json").read_text(encoding="utf-8"))
+def test_polling_backlog_seed_is_valid() -> None:
+    seed = json.loads((POLLING / "backlog.json").read_text(encoding="utf-8"))
     assert len(seed["tasks"]) >= 3
     for task in seed["tasks"]:
         assert task["id"] and task["prompt"]
 
 
-def test_reconciler_worker_prompt_has_contract() -> None:
-    text = (RECONCILER / "prompts" / "worker.md").read_text(encoding="utf-8")
+def test_polling_worker_prompt_has_contract() -> None:
+    text = (POLLING / "prompts" / "worker.md").read_text(encoding="utf-8")
     assert "{{task_id}}" in text
     assert "{{task_prompt}}" in text
     assert "status: done | failed" in text
     assert "final response" in text.lower()
 
 
-def test_reconciler_dry_run_mutates_nothing() -> None:
-    state_file = RECONCILER / "state.json"
-    worklog = RECONCILER / "WORKLOG.md"
+def test_polling_dry_run_mutates_nothing() -> None:
+    state_file = POLLING / "state.json"
+    worklog = POLLING / "WORKLOG.md"
     state_before = state_file.read_text(encoding="utf-8") if state_file.exists() else None
     worklog_before = worklog.read_text(encoding="utf-8") if worklog.exists() else None
     result = subprocess.run(
-        [sys.executable, str(RECONCILER / "orchestrate_once.py"), "--dry-run"],
+        [sys.executable, str(POLLING / "orchestrate_once.py"), "--dry-run"],
         capture_output=True,
         text=True,
         timeout=60,

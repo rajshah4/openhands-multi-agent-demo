@@ -1,10 +1,12 @@
-# Pattern 1: Supervisor (Parent-Child)
+# Pattern 1: Parent-Child
 
-One orchestrator runs a complete lifecycle of child conversations, **now**.
+A live parent orchestrator runs a complete lifecycle of child conversations,
+**now**. The parent waits for each child; contrast with the
+[polling loop](../polling/), which never waits.
 
 ```text
 request
-  -> supervisor (this script, or a parent conversation)
+  -> parent (this script, or a parent conversation)
     -> child: plan
     -> child: build
     -> child: check

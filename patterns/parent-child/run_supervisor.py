@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Supervisor pattern: one orchestrator runs a full lifecycle of child conversations, now.
+"""Parent-child pattern: a live parent runs a full lifecycle of child conversations, now.
 
 One request -> plan -> build -> check -> lifecycle report.
 
@@ -136,7 +136,7 @@ def start_and_wait_cell(
 
 def lifecycle_report(args: argparse.Namespace, entries: list[dict[str, Any]]) -> str:
     lines = [
-        "# Supervisor Lifecycle Report",
+        "# Parent-Child Lifecycle Report",
         "",
         f"- Run id: `{args.run_id}`",
         f"- Runtime: `{args.runtime}`",

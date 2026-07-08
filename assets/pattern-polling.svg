@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 320" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="parrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9" fill="none" stroke="#8a8a8a" stroke-width="1.4"/>
+    </marker>
+    <marker id="parrowGreen" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9" fill="none" stroke="#3fa06d" stroke-width="1.4"/>
+    </marker>
+  </defs>
+
+  <!-- tick chain -->
+  <rect x="40" y="60" width="120" height="50" rx="8" fill="none" stroke="#3fa06d" stroke-width="2"/>
+  <text x="100" y="82" fill="#3fa06d" font-size="14.5" font-weight="600" text-anchor="middle">wake</text>
+  <text x="100" y="100" fill="#8a8a8a" font-size="12" text-anchor="middle">cron / schedule</text>
+
+  <line x1="160" y1="85" x2="212" y2="85" stroke="#8a8a8a" stroke-width="1.4" marker-end="url(#parrow)"/>
+
+  <rect x="216" y="60" width="130" height="50" rx="8" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+  <text x="281" y="82" fill="#8a8a8a" font-size="14.5" font-weight="600" text-anchor="middle">read state</text>
+  <text x="281" y="100" fill="#8a8a8a" font-size="12" text-anchor="middle">what changed?</text>
+
+  <line x1="346" y1="85" x2="398" y2="85" stroke="#8a8a8a" stroke-width="1.4" marker-end="url(#parrow)"/>
+
+  <rect x="402" y="60" width="160" height="50" rx="8" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+  <text x="482" y="82" fill="#8a8a8a" font-size="14.5" font-weight="600" text-anchor="middle">take ONE action</text>
+  <text x="482" y="100" fill="#8a8a8a" font-size="12" text-anchor="middle">spawn | record | quiet</text>
+
+  <line x1="562" y1="85" x2="614" y2="85" stroke="#8a8a8a" stroke-width="1.4" marker-end="url(#parrow)"/>
+
+  <rect x="618" y="60" width="110" height="50" rx="8" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+  <text x="673" y="82" fill="#8a8a8a" font-size="14.5" font-weight="600" text-anchor="middle">log + exit</text>
+  <text x="673" y="100" fill="#8a8a8a" font-size="12" text-anchor="middle">nothing stays up</text>
+
+  <!-- loop back -->
+  <path d="M 673 110 C 673 160, 100 160, 100 114" fill="none" stroke="#3fa06d" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#parrowGreen)"/>
+  <text x="386" y="152" fill="#3fa06d" font-size="12.5" text-anchor="middle">next scheduled tick (nothing runs in between)</text>
+
+  <!-- durable state -->
+  <g>
+    <path d="M 216 220 a 65 11 0 0 0 130 0 v 40 a 65 11 0 0 1 -130 0 z" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+    <ellipse cx="281" cy="220" rx="65" ry="11" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+    <text x="281" y="252" fill="#8a8a8a" font-size="13" text-anchor="middle">durable state</text>
+    <text x="281" y="286" fill="#8a8a8a" font-size="11.5" text-anchor="middle">backlog + worklog (or labels/tickets)</text>
+  </g>
+  <line x1="281" y1="208" x2="281" y2="114" stroke="#8a8a8a" stroke-width="1.3" stroke-dasharray="4 4" marker-end="url(#parrow)"/>
+  <text x="290" y="170" fill="#8a8a8a" font-size="11.5">the only memory</text>
+
+  <!-- worker -->
+  <rect x="440" y="210" width="180" height="52" rx="8" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+  <text x="530" y="232" fill="#8a8a8a" font-size="14" font-weight="600" text-anchor="middle">worker conversation</text>
+  <text x="530" y="250" fill="#8a8a8a" font-size="12" text-anchor="middle">runs on its own</text>
+  <line x1="482" y1="110" x2="516" y2="206" stroke="#3fa06d" stroke-width="1.6" marker-end="url(#parrowGreen)"/>
+  <text x="510" y="165" fill="#3fa06d" font-size="12.5">fire and forget</text>
+</svg>
