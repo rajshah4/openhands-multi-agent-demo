@@ -88,7 +88,7 @@ The shape is parent-child in miniature. What changes is the boundary:
 | --- | --- | --- |
 | Where it runs | Inside the parent's conversation and runtime | Its own conversation - own sandbox on Cloud/Enterprise |
 | Visibility | A tool call in the parent's event stream | A separate conversation URL you can open, watch, and audit |
-| Blocking | Always synchronous; designed for sequential blocking tasks | The parent chooses when to wait and where to gate |
+| Blocking | Synchronous - the parent blocks until the step's subagent calls return | The parent chooses when to wait and where to gate |
 | Context handoff | Prompt in, result text out; resumable by task id | Final-response contract (`status:` / `summary:` / `next_gate:`) |
 | Use when | Bounded expert help mid-task: review this diff, plan these tests, look up context | Lifecycle steps that need isolation, their own audit trail, or human gates between them |
 
@@ -97,6 +97,18 @@ answer. Reach for full child conversations when visibility, separate
 sandboxes, or a customer-facing audit trail matter. The two compose: a
 Pattern 1 child (or a polling worker) can use subagents internally for its
 own lookups without the orchestrator ever knowing.
+
+A related but different knob is
+[parallel tool execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution):
+setting `tool_concurrency_limit` on the `Agent` (default `1`, i.e.
+sequential; the feature is experimental) lets one agent step run several
+independent tool calls concurrently. On its own it is not an orchestration
+pattern - nothing about *who advances the work* changes. It matters here
+because a subagent launch is itself a tool call, so a parent with
+`tool_concurrency_limit > 1` can fan out several subagents in a single step
+and block until they all return. The safety caveat is the same as this repo's
+state rule below: tool calls (including subagents) that modify shared state
+or write the same files are not safe to run concurrently.
 
 ## The State Question (Where Worker Output Goes)
 

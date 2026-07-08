@@ -196,7 +196,10 @@ agents, and you do not have to pick one harness for everything:
   it later by task id with context preserved. Parent-child in miniature -
   right for bounded expert help mid-task (review this diff, plan these
   tests), not a replacement for child conversations when you want separate
-  sandboxes and visible audit trails. The comparison table is in
+  sandboxes and visible audit trails. With the SDK's experimental
+  [parallel tool execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution)
+  (`tool_concurrency_limit > 1`), a parent can even fan out several subagent
+  calls in one step. The comparison table is in
   [choosing a pattern](docs/choosing-a-pattern.md#subagents-delegation-inside-one-conversation).
 - **Agent Canvas** runs both patterns locally (`--runtime canvas`) and shows
   every worker as a live conversation you can open while it runs. Canvas and
