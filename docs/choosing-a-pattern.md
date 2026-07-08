@@ -70,6 +70,34 @@ step has a natural trigger. The production example is the GitHub-label path in
 the sdlc demo; see the README's Pattern 3 section for how this repo's linear
 pipeline demos map onto it.
 
+## Subagents: Delegation Inside One Conversation
+
+The three patterns coordinate work *across* conversations. The OpenHands SDK's
+[TaskToolSet](https://docs.openhands.dev/sdk/guides/task-tool-set) adds a
+smaller delegation unit below that level: a parent agent launches a
+specialized **subagent** as a tool call inside its own conversation. The
+subagent runs synchronously - the parent blocks until it finishes and returns
+a `TaskObservation` with the result text - and it can be resumed later by task
+id with its full conversation history reloaded. Beyond the general-purpose
+default, custom specializations (a code reviewer, a test planner, a domain
+expert) register with `register_agent()`.
+
+The shape is parent-child in miniature. What changes is the boundary:
+
+| | Subagent (TaskToolSet) | Child conversation (Pattern 1) |
+| --- | --- | --- |
+| Where it runs | Inside the parent's conversation and runtime | Its own conversation - own sandbox on Cloud/Enterprise |
+| Visibility | A tool call in the parent's event stream | A separate conversation URL you can open, watch, and audit |
+| Blocking | Always synchronous; designed for sequential blocking tasks | The parent chooses when to wait and where to gate |
+| Context handoff | Prompt in, result text out; resumable by task id | Final-response contract (`status:` / `summary:` / `next_gate:`) |
+| Use when | Bounded expert help mid-task: review this diff, plan these tests, look up context | Lifecycle steps that need isolation, their own audit trail, or human gates between them |
+
+Use a subagent when an agent needs bounded expert help and can wait for the
+answer. Reach for full child conversations when visibility, separate
+sandboxes, or a customer-facing audit trail matter. The two compose: a
+Pattern 1 child (or a polling worker) can use subagents internally for its
+own lookups without the orchestrator ever knowing.
+
 ## The State Question (Where Worker Output Goes)
 
 The most common adaptation mistake is assuming a worker's files are visible to

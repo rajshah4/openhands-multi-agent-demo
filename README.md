@@ -190,6 +190,14 @@ agents, and you do not have to pick one harness for everything:
   wraps any ACP-speaking tool as a first-class agent. The working example is
   [`shared_workspace.py`](shared_workspace.py): three vendors, one control
   plane.
+- **Subagents (SDK [TaskToolSet](https://docs.openhands.dev/sdk/guides/task-tool-set))**
+  delegate *inside* one conversation: the parent launches a specialized
+  subagent as a tool call, blocks until it returns its result, and can resume
+  it later by task id with context preserved. Parent-child in miniature -
+  right for bounded expert help mid-task (review this diff, plan these
+  tests), not a replacement for child conversations when you want separate
+  sandboxes and visible audit trails. The comparison table is in
+  [choosing a pattern](docs/choosing-a-pattern.md#subagents-delegation-inside-one-conversation).
 - **Agent Canvas** runs both patterns locally (`--runtime canvas`) and shows
   every worker as a live conversation you can open while it runs. Canvas and
   Enterprise expose different APIs (local conversations vs app-conversations
