@@ -200,16 +200,21 @@ if grep -q "shared_workspace.py" README.md && \
    grep -q "cloud_conversations.py" README.md && \
    grep -q "WORKFLOW_PATTERNS.md" README.md && \
    grep -q "parent_child_supervisor.py" README.md && \
-   grep -q "polling_continuation_loop.py" README.md; then
+   grep -q "polling_continuation_loop.py" README.md && \
+   grep -q "Three Choices" README.md && \
+   grep -q "Agent Canvas" README.md && \
+   grep -q "Validation Status" README.md; then
     test_pass "README.md uses new filenames"
 else
-    test_fail "README.md has old filename references"
+    test_fail "README.md is missing expected pattern references"
 fi
 
 test_step "Checking WORKFLOW_PATTERNS.md references"
 if grep -q "Parent-child supervisor" WORKFLOW_PATTERNS.md && \
    grep -q "Polling continuation loop" WORKFLOW_PATTERNS.md && \
-   grep -q "15 minutes" WORKFLOW_PATTERNS.md; then
+   grep -q "15 minutes" WORKFLOW_PATTERNS.md && \
+   grep -q "Agent Canvas" WORKFLOW_PATTERNS.md && \
+   grep -q "Pattern scaffold" WORKFLOW_PATTERNS.md; then
     test_pass "Workflow guide covers new patterns"
 else
     test_fail "Workflow guide is missing expected patterns"

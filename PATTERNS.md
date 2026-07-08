@@ -1,17 +1,25 @@
 # Multi-Agent Orchestration Patterns
 
-This document explains three technical patterns for orchestrating multiple agents
+This document explains three runtime patterns for orchestrating multiple agents
 with OpenHands.
 
 The main idea is that OpenHands can act as the orchestration layer, or control
-plane, around heterogeneous agent harnesses. The workflow can stay stable while
-the runtime model changes: agents can share a workspace directly, hand off state
-through git across isolated local clones, or run in enterprise-managed cloud
-sandboxes.
+plane. The workflow can stay stable while the runtime model changes: agents can
+share a workspace directly, hand off state through git across isolated local
+clones, or run in enterprise-managed cloud sandboxes.
 
 The sections below focus on runtime trade-offs and when to use each one. For
 workflow shapes such as parent-child delegation and polling continuation loops,
 see [`WORKFLOW_PATTERNS.md`](WORKFLOW_PATTERNS.md).
+
+Agent harnesses still matter, but they are not the primary taxonomy. ACP lets
+OpenHands and Agent Canvas connect to specialized tools such as Claude Code,
+Gemini CLI, Pi, or other compatible agents. Treat those as interchangeable
+workers that can sit inside any runtime pattern.
+
+The runtime examples in this guide are the validated demo path for the repo.
+The newer workflow examples are intentionally documented as pattern scaffolds
+until they are exercised against live end-to-end flows.
 
 ## Quick Visual Guide
 
@@ -68,9 +76,26 @@ advances. Keep those choices separate:
   Enterprise-managed sandboxes.
 - Use `WORKFLOW_PATTERNS.md` to choose linear pipeline, parent-child
   supervisor, or polling continuation loop.
+- Use Agent Canvas, automations, or scripts as the surface that starts and
+  observes the workflow.
 
 Any workflow pattern can be implemented on top of any runtime pattern, though
 some combinations are more natural than others.
+
+## Where Agent Canvas Fits
+
+Agent Canvas is easiest to explain as a visual control surface over the same
+patterns:
+
+- It can launch or observe ACP-connected agents when the demo needs
+  heterogeneous harnesses.
+- It can make parent-child delegation visible: one supervisor conversation
+  creates bounded child conversations.
+- It can show long-running workflows as a sequence of scheduled wake-ups and
+  worker conversations rather than one forever-running process.
+
+This means Agent Canvas does not replace the runtime choice. It makes the
+orchestration easier to inspect and easier to teach.
 
 ---
 
@@ -443,7 +468,7 @@ Most teams follow this progression:
 1. **Start with Pattern 1** — Prove the concept locally
    - Fast iteration
    - Learn multi-agent patterns
-   - Test harness integration
+   - Test agent/harness integration
 
 2. **Move to Pattern 3** — Scale to production
    - Add observability
@@ -471,17 +496,20 @@ handoff logic themselves.
 Pattern 2 recreates, locally and manually, parts of what the **app-server**
 does automatically in Pattern 3.
 
-### Canvas + Agent-Server Architecture (2026)
+### Agent Canvas + OpenHands Runtime
 
-The new OpenHands architecture:
-- **Canvas (GUI)** — Single frontend for all backends
-- **Agent-Server** — OSS runtime (Patterns 1 & 2)
-- **Enterprise** — Cloud or self-hosted runtime (Pattern 3)
+Agent Canvas can sit above these runtime patterns:
 
-All three patterns fit within this architecture:
-- Pattern 1: Canvas → local agent-server
-- Pattern 2: Canvas → local orchestrator plus isolated local workspaces
-- Pattern 3: Canvas → Enterprise backend (Cloud or self-hosted)
+- **Pattern 1:** Canvas or a script drives a local agent-server and shared
+  workspace.
+- **Pattern 2:** Canvas or a script drives a local orchestrator that manages
+  isolated local workspaces.
+- **Pattern 3:** Canvas or a script drives OpenHands Cloud/Enterprise
+  conversations where the platform manages sandboxes.
+
+With ACP connectivity, Canvas can also include external agent harnesses in the
+same visible workflow. That is the flexibility story: Canvas shows the system,
+OpenHands coordinates it, and the runtime pattern determines isolation.
 
 ---
 

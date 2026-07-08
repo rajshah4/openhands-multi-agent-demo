@@ -8,6 +8,14 @@ trade-offs and when to use each approach.
 
 ## Current Direction
 
+The repo now positions harness flexibility as one part of a broader
+multi-agent pattern catalog. The main choices are:
+
+- **Workflow pattern**: how work advances between agents.
+- **Runtime pattern**: where agents run and how isolated they are.
+- **User/control surface**: whether the workflow starts from a script,
+  automation, Agent Canvas, or another product surface.
+
 The repo also includes workflow patterns beyond harness/runtime selection:
 
 - **Linear pipeline**: implement -> test -> review.
@@ -82,13 +90,19 @@ Pattern 3: Just right! ✨    → Production
 
 ### Architecture Compatibility
 
-All three patterns are compatible with the new Canvas + Agent-Server architecture:
-- Pattern 1: Canvas → local agent-server (single instance)
-- Pattern 2: Canvas → multiple local agent-servers
-- Pattern 3: Canvas → Cloud backend (app-server manages sandboxes)
+All three runtime patterns can be shown through Agent Canvas or driven from
+scripts/automations:
 
-The app-server v1 API (Pattern 3) is guaranteed for 1+ year, making it the
-stable production choice.
+- Pattern 1: Canvas or script -> local agent-server and shared workspace.
+- Pattern 2: Canvas or script -> local orchestrator plus isolated workspaces.
+- Pattern 3: Canvas or script -> Cloud/Enterprise conversations where the
+  platform manages sandboxes.
+
+With ACP connectivity, Agent Canvas can include specialized external harnesses
+inside those patterns while keeping the workflow contract stable.
+
+Pattern 3 remains the production-oriented example because the platform manages
+sandbox provisioning, observability, and cleanup.
 
 ## Migration Path
 

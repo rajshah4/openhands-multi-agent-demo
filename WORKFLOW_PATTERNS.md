@@ -1,23 +1,45 @@
 # Workflow Patterns
 
-This repo now separates two decisions:
+This repo separates three choices:
 
 1. **Runtime pattern:** where agents run and how isolated they are.
 2. **Workflow pattern:** how work advances from one agent to the next.
+3. **User/control surface:** whether the workflow starts from a script,
+   automation, Agent Canvas, or another product surface.
 
 `PATTERNS.md` covers the runtime axis. This guide covers the workflow axis.
 
 ## Pattern Catalog
 
-| Workflow pattern | Example | Best for | Control model |
-| --- | --- | --- | --- |
-| **Linear multi-agent pipeline** | `shared_workspace.py`, `multi_server_isolation.py`, `cloud_conversations.py` | A bounded implement -> test -> review demo | The script waits for each phase before starting the next. |
-| **Parent-child supervisor** | `parent_child_supervisor.py` | One request should produce a complete lifecycle report | One parent stays alive, starts child conversations, gates on final responses, and writes a summary. |
-| **Polling continuation loop** | `polling_continuation_loop.py` | Workflows that may span hours or days | A cron wakes the orchestrator every 15 minutes, checks state, takes at most one action, logs, and exits. |
+| Workflow pattern | Example | Status | Best for | Control model |
+| --- | --- | --- | --- | --- |
+| **Linear multi-agent pipeline** | `shared_workspace.py`, `multi_server_isolation.py`, `cloud_conversations.py` | Validated demo path | A bounded implement -> test -> review demo | The script waits for each phase before starting the next. |
+| **Parent-child supervisor** | `parent_child_supervisor.py` | Pattern scaffold | One request should produce a complete lifecycle report | One parent stays alive, starts child conversations, gates on final responses, and writes a summary. |
+| **Polling continuation loop** | `polling_continuation_loop.py` | Pattern scaffold | Workflows that may span hours or days | A cron wakes the orchestrator every 15 minutes, checks state, takes at most one action, logs, and exits. |
 
 These patterns can run on any runtime pattern. For example, a parent-child
 supervisor can use Enterprise-managed sandboxes, local isolated clones, or a
 single shared SDK workspace.
+
+The status column is intentional. The linear pipeline examples are the
+previously validated demo path. The parent-child and polling examples are
+teaching scaffolds for reusable patterns; they should be validated in a real
+workflow before being positioned as customer-ready demos.
+
+## Where Agent Canvas Fits
+
+Agent Canvas is a strong teaching surface for these patterns because it makes
+the work graph visible:
+
+- A **linear pipeline** can appear as implement -> test -> review nodes.
+- A **parent-child supervisor** can appear as one parent conversation that
+  starts bounded child conversations and gates on their final responses.
+- A **polling continuation loop** can appear as repeated scheduled wake-ups
+  that spawn short-lived workers and then exit.
+
+With ACP connectivity, Canvas can include specialized harnesses in those nodes
+without changing the workflow contract. That is the demo story: workflow
+patterns stay stable while the agent mix and runtime surface can change.
 
 ## Linear Multi-Agent Pipeline
 
@@ -139,6 +161,7 @@ Use this pattern when:
 | One request kicks off a full visible lifecycle | Parent-child supervisor |
 | Long-running backlog/PR flow that should keep nudging itself forward | Polling continuation loop |
 | Human review before every step | Do not fully automate; use label or webhook gates |
+| Visual workshop or customer walkthrough | Agent Canvas as the control surface |
 
 ## Polling Pattern Checklist
 

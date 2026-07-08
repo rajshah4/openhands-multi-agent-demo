@@ -1,40 +1,78 @@
 # How OpenHands Orchestrates Multiple Agents
 
-> OpenHands lets you choose how agents share state, how they are isolated, and
-> how the workflow is orchestrated.
+> OpenHands lets you choose the workflow pattern, runtime surface, and
+> agent/harness mix for a multi-agent system.
 
-![OpenHands control plane for multiple agent harnesses](assets/openhands-control-plane-v2.png)
+![OpenHands control plane for workflow and runtime choices](assets/openhands-control-plane-v2.png)
 
 The diagram above shows the control-plane view: OpenHands coordinates the
-workflow while different harnesses and runtime models sit underneath it.
+workflow while different runtime models and agent harnesses sit underneath it.
 
 ## Why Multi-Agent Orchestration?
 
-An **agent harness** wraps a model with tools, context, and execution —
-Claude Code, Gemini CLI, and OpenHands are all harnesses. Each has different
-strengths: Claude Code for implementation, Gemini CLI for fast test generation,
-OpenHands for code review with its own agent framework.
+The original version of this repo emphasized different **agent harnesses**:
+Claude Code, Gemini CLI, OpenHands, and other tools that wrap a model with
+context and execution. That still matters because OpenHands can coordinate
+across them through ACP and conversation APIs.
 
-This repo treats OpenHands as the orchestration layer, or control plane, around
-those harnesses. The key idea is that the workflow is separate from the runtime:
-the same implement → test → review pipeline can run with different harnesses,
-with different state-sharing models, and with different isolation strategies.
+The clearer customer story is broader than harness choice:
 
-The point is not that you must use three vendors. The point is that you can
-compose heterogeneous agent systems while keeping the workflow itself stable.
+| Choice | What it decides | Examples in this repo |
+| --- | --- | --- |
+| **Workflow pattern** | How work advances between agents | linear pipeline, parent-child supervisor, polling continuation loop |
+| **Runtime surface** | Where agents run and how isolated they are | shared workspace, isolated local clones, Cloud/Enterprise conversations |
+| **Agent/harness mix** | Which specialized agents do each job | OpenHands agents, ACP-connected harnesses, external CLIs |
 
-## Two Decisions
+Agent Canvas strengthens this framing. It is not just another harness. With ACP
+connectivity, Canvas can be the visual place where teams compose and observe
+ACP-backed agents, OpenHands conversations, and delegated workflows. The same
+pattern can be launched from a script, an automation, or Agent Canvas, then run
+on a local workspace, isolated clones, or OpenHands Cloud/Enterprise.
 
-When you design a multi-agent system, make two choices separately:
+The point is not that you must use three vendors. The point is that OpenHands
+lets you keep the workflow stable while changing the execution surface
+underneath it.
+
+## Three Choices
+
+When you design a multi-agent system, separate these choices:
 
 | Decision | Question | Guide |
 | --- | --- | --- |
-| **Runtime pattern** | Where do agents run, and how isolated are they? | [`PATTERNS.md`](PATTERNS.md) |
 | **Workflow pattern** | How does work advance between agents over time? | [`WORKFLOW_PATTERNS.md`](WORKFLOW_PATTERNS.md) |
+| **Runtime pattern** | Where do agents run, and how isolated are they? | [`PATTERNS.md`](PATTERNS.md) |
+| **Agent surface** | Is the user driving this from code, an automation, or Agent Canvas? | This README |
 
-The original demo focused on runtime and harness choices. This repo now also
-catalogs workflow patterns: a linear multi-agent pipeline, a parent-child
-supervisor, and a polling continuation loop.
+Harness flexibility is a capability, not the whole story. Lead with the
+workflow pattern, then pick the runtime and harnesses that fit the customer.
+
+## How To Tell The Story
+
+- **For builders:** Start with a simple linear pipeline, then decide whether
+  agents can share a workspace or need isolated sandboxes.
+- **For software factories:** Use a parent-child supervisor when one ticket
+  should create a visible lifecycle of child conversations.
+- **For long-running work:** Use a polling continuation loop when the workflow
+  should wake every 15 minutes, inspect durable state, spawn bounded workers,
+  and exit.
+- **For demos and workshops:** Use Agent Canvas to make the workflow visible,
+  especially when ACP-connected agents are part of the story.
+- **For enterprise deployment:** Move the same workflow shape to OpenHands
+  Cloud/Enterprise conversations for isolation, observability, and auditability.
+
+## Validation Status
+
+This repo separates proven demos from emerging patterns:
+
+| Area | Status | What to say |
+| --- | --- | --- |
+| **Runtime/harness demos** | Validated demo path | These are the original working examples: shared workspace, isolated local clones, and Cloud/Enterprise conversations. |
+| **Parent-child supervisor** | Pattern scaffold | This shows the reusable orchestration shape; validate it against a live ticket-to-child-conversation flow before calling it a production demo. |
+| **Polling continuation loop** | Pattern scaffold | This captures the scheduled wake-up pattern; validate it against a real backlog/PR workflow before customer use. |
+
+Use the existing runtime demos when you need a proven walkthrough today. Use the
+new workflow-pattern examples to explain where the catalog is going and what we
+still need to validate.
 
 ## The Pipeline
 
@@ -46,9 +84,10 @@ The original demos run the same three-phase pipeline:
 | **Test** | Gemini CLI (Google) | Reads the code and adds pytest coverage |
 | **Review** | OpenHands | Reviews everything, reports findings with severity |
 
-You can swap harnesses within the pipeline to use OpenHands 
-for all phases, or move the same workflow between shared
-workspaces, isolated local clones, and managed cloud sandboxes.
+You can swap harnesses within the pipeline to use OpenHands for all phases, use
+ACP-connected tools for specific phases, or move the same workflow between
+Agent Canvas, shared workspaces, isolated local clones, and managed cloud
+sandboxes.
 
 ## Three Runtime Patterns for Multi-Agent Orchestration
 
@@ -85,9 +124,10 @@ delegation, polling continuation loops, and when to choose each workflow shape.
 | **Parent-child supervisor** | `parent_child_supervisor.py` | One request should start a visible parent that delegates bounded child conversations and writes a lifecycle report. |
 | **Polling continuation loop** | `polling_continuation_loop.py` | A workflow should wake every 15 minutes, check durable state, spawn at most one worker, log, and exit. |
 
-The workflow pattern and runtime pattern are independent. For example, the
-parent-child supervisor can run on OpenHands Enterprise conversations, local
-isolated clones, or a shared SDK workspace.
+The workflow pattern, runtime pattern, and user surface are independent. For
+example, the parent-child supervisor can be launched from Agent Canvas, an
+automation, or a script, and the child workers can run in Enterprise
+conversations, local isolated clones, or a shared SDK workspace.
 
 ### When to Use Each Pattern
 
@@ -311,6 +351,7 @@ This is why `cloud_conversations.py` stays relatively thin while
 ## Enterprise Value
 
 - **Multi-vendor flexibility** — Anthropic implements, Google tests, OpenHands reviews
+- **Canvas-first visibility** — Agent Canvas can show ACP-connected agents and delegated work
 - **Observable workflows** — Each agent in its own conversation, fully auditable
 - **Distributed architecture** — Agents communicate through artifacts (git), not tight coupling
 - **Vendor-agnostic** — Swap any agent without changing the pipeline
