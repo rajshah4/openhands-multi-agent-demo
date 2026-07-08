@@ -1,27 +1,29 @@
 # Multi-Agent Orchestration Patterns for OpenHands
 
-Runnable patterns for coordinating multiple OpenHands agents. The first
-decision is the orchestrator's lifetime: do you want a **constantly running
-orchestrator** that drives a task from start to finish (best for short to
-medium tasks), or a **polling orchestrator** that wakes on a schedule, nudges
-the work forward, and exits (best for long-running work)? A third pattern
-drops the orchestrator entirely and lets **events** advance the work.
+Runnable patterns for coordinating multiple OpenHands agents. Three ways to
+build an agent workflow, split by one question - **who advances the work?**
 
-The distinction that matters: **the parent-child orchestrator waits for its
-workers; the polling orchestrator never waits — it checks back later.**
+- **Parent-Child:** a constantly running orchestrator drives a task from start
+  to finish. It *waits* for each worker. Best for short-to-medium tasks.
+- **Polling Loop:** a scheduled orchestrator wakes, nudges the work forward,
+  and exits. It *never waits* - it checks back on the next tick. Best for
+  long-running work.
+- **Event-Driven Handoff:** no orchestrator at all. Each finished step changes
+  the system of record, and *that change triggers* the next agent. Best when
+  the workflow already lives in GitHub or Jira.
 
-| | [Pattern 1: Parent-Child](patterns/parent-child/) | [Pattern 2: Polling Loop](patterns/polling/) |
-| --- | --- | --- |
-| One line | Run a full lifecycle of child agents, **now** | Keep a backlog moving, **forever** |
-| Who advances the work | A live parent that stays up for the whole run | A scheduled tick that exits after one action |
-| Shape | Parent delegates plan -> build -> check children and gates on each | Wake, observe state, take one action, exit |
-| Memory | The live orchestrator + a run directory | Durable state on disk (or labels/tickets) - no live process |
-| Use when | One request should produce one complete, visible result | Work spans hours/days and must survive crashes and restarts |
-| Production example | [sdlc-automation-github-demo](https://github.com/rajshah4/sdlc-automation-github-demo) (Jira ticket -> PR + review + QA) | [ohtv-workflow](https://github.com/jpshackelford/.openhands/tree/main/plugins/ohtv-workflow) (issue-to-merge on cron) |
+| | [Pattern 1: Parent-Child](patterns/parent-child/) | [Pattern 2: Polling Loop](patterns/polling/) | Pattern 3: Event-Driven Handoff |
+| --- | --- | --- | --- |
+| One line | Run a full lifecycle of child agents, **now** | Keep a backlog moving, **forever** | Let the system of record drive the work |
+| Who advances the work | A live parent that stays up for the whole run | A scheduled tick that exits after one action | The event itself - no orchestrator |
+| Shape | Parent delegates plan -> build -> check children and gates on each | Wake, observe state, take one action, exit | Agent finishes -> label/push/ticket change -> automation triggers the next agent |
+| Memory | The live orchestrator + a run directory | Durable state on disk (or labels/tickets) - no live process | The system of record itself |
+| Use when | One request should produce one complete, visible result | Work spans hours/days and must survive crashes and restarts | Every step has a natural trigger and humans gate between steps |
+| Production example | [sdlc-automation-github-demo](https://github.com/rajshah4/sdlc-automation-github-demo) (Jira ticket -> PR + review + QA) | [ohtv-workflow](https://github.com/jpshackelford/.openhands/tree/main/plugins/ohtv-workflow) (issue-to-merge on cron) | [sdlc-automation-github-demo](https://github.com/rajshah4/sdlc-automation-github-demo) step-by-step labels |
 
-![Parent-child pattern: a live parent starts children in order and gates on each status report](assets/pattern-parent-child.svg)
+![Parent-child pattern: every child reports back to the parent; children never talk to each other](assets/pattern-parent-child.svg)
 
-![Polling loop pattern: a scheduled tick reads durable state, takes one action, and exits](assets/pattern-polling.svg)
+![Polling loop pattern: a scheduled circle of work - wake, check state, decide, take one action, log and exit](assets/pattern-polling.svg)
 
 Both patterns run locally in Agent Canvas or on OpenHands Enterprise/Cloud.
 The isolation model differs: Enterprise gives every worker conversation its
@@ -31,8 +33,10 @@ with a separate git worktree per conversation.
 
 ## Quickstart
 
-This section has a runnable example of each approach. Against OpenHands
-Cloud, Enterprise, or self-hosted - same API:
+This section has a runnable example of the first two patterns - the ones with
+an orchestrator to run. (Pattern 3 has no orchestrator; its triggers live in
+GitHub/Jira - see [its section](#pattern-3-event-driven-handoff).) Against
+OpenHands Cloud, Enterprise, or self-hosted - same API:
 
 ```bash
 export OPENHANDS_API_KEY="your-key"
@@ -71,7 +75,7 @@ software factory built on the same shapes in
 
 ## The Ideas Underneath
 
-Three transferable ideas carry both patterns:
+Three transferable ideas carry all three patterns:
 
 1. **Small status reports, not shared context.** Each worker gets a
    self-contained prompt and ends its reply with a short, fixed-format status
@@ -81,8 +85,9 @@ Three transferable ideas carry both patterns:
 
 2. **State placement is the design decision.** The parent-child orchestrator
    holds state in a live process. The polling loop holds it in durable
-   records. Everything else - crash recovery, cost profile, time horizon -
-   follows from that choice.
+   records. Event-driven handoff goes all the way: state lives entirely in
+   the system of record. Everything else - crash recovery, cost profile,
+   time horizon - follows from that choice.
 
 3. **Humans own the irreversible.** Workers never merge, deploy, or approve
    their own output - they do bounded work and report back. The orchestrator
@@ -101,26 +106,30 @@ advance the work.
 
 ![Event-driven handoff: each finished step changes the system of record, which triggers the next agent](assets/pattern-event-driven.svg)
 
-| Pattern | Who advances the work |
-| --- | --- |
-| Parent-child | A live parent |
-| Polling loop | A scheduled tick |
-| Event-driven handoff | The event itself - no orchestrator |
-
 The production example is the step-by-step path in
 [sdlc-automation-github-demo](https://github.com/rajshah4/sdlc-automation-github-demo):
 a human applies a GitHub label (`openhands-build`, `openhands-review`,
 `openhands-qa`), each label triggers one bounded automation, and the results
 land back on the issue or PR. The system of record is the workflow.
 
-This repo's original demos show three **handoff mediums** on the same
-implement -> test -> review pipeline, from tightest to loosest coupling:
+### Where the Original Demos Fit
 
-| Script | Handoff medium | Notable |
+This repo predates the pattern framing with three linear
+implement -> test -> review demos. Here is how each maps onto the patterns -
+and what it becomes if you grow it up:
+
+| Original demo | Which pattern is it? | What it grows into |
 | --- | --- | --- |
-| [`shared_workspace.py`](shared_workspace.py) | One shared workspace - agents hand off through the filesystem | Multi-agent AND multi-harness: Claude Code implements, Gemini CLI tests, OpenHands reviews, via ACP |
-| [`multi_server_isolation.py`](multi_server_isolation.py) | Git - each agent works in an isolated clone and pushes; the push is the handoff | The git artifact is the trigger; swap the driving script for webhooks and it becomes fully event-driven |
-| [`cloud_conversations.py`](cloud_conversations.py) | Managed Enterprise conversations chained by API | One sandbox per phase with a web UI; replace the script with automations for a no-orchestrator chain |
+| [`cloud_conversations.py`](cloud_conversations.py) | **Parent-child, simplified.** The script is a live parent that starts each Enterprise conversation and waits for it - just without gates. | Pattern 1 is its upgrade: add status reports and gate logic and you have `run_supervisor.py`. |
+| [`multi_server_isolation.py`](multi_server_isolation.py) | **Parent-child today, event-driven in spirit.** The script still waits on each phase, but the handoff artifact is a git push - exactly the kind of event automations trigger on. | Remove the waiting script and let automations react to the pushes/labels instead: that is Pattern 3, and the sdlc label demo is precisely that, in production. |
+| [`shared_workspace.py`](shared_workspace.py) | **Not an orchestration pattern - a runtime + harness choice.** Agents relay work inside one shared workspace, each picking up the previous agent's files. The sequencing is still done by a waiting script (parent-child shape). | Keep it as the **multi-harness proof**: Claude Code implements, Gemini CLI tests, OpenHands reviews, connected by ACP. Any of the three patterns can use this - a shared workspace and ACP workers are choices about *where workers run* and *what fills the worker slot*, not about who advances the work. |
+
+Is the shared-workspace relay a real use case? Yes, but a narrow one: tight
+sequential collaboration on one checkout (no re-cloning, no artifact passing)
+where isolation between agents does not matter. You can do the same thing in
+Agent Canvas with ACP-backed conversations sharing a working directory. Its
+lasting value here is proving the worker slot is harness-agnostic - the
+orchestration question is still answered by one of the three patterns above.
 
 Run them:
 
