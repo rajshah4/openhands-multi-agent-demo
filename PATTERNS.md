@@ -9,8 +9,8 @@ share a workspace directly, hand off state through git across isolated local
 clones, or run in enterprise-managed cloud sandboxes.
 
 The sections below focus on runtime trade-offs and when to use each one. For
-workflow shapes such as parent-child delegation and polling continuation loops,
-see [`WORKFLOW_PATTERNS.md`](WORKFLOW_PATTERNS.md).
+workflow shapes - the supervisor and reconciler patterns - see
+[`docs/choosing-a-pattern.md`](docs/choosing-a-pattern.md) and [`patterns/`](patterns/).
 
 Agent harnesses still matter, but they are not the primary taxonomy. ACP lets
 OpenHands and Agent Canvas connect to specialized tools such as Claude Code,
@@ -74,8 +74,8 @@ advances. Keep those choices separate:
 
 - Use this guide to choose shared workspace, isolated local clones, or
   Enterprise-managed sandboxes.
-- Use `WORKFLOW_PATTERNS.md` to choose linear pipeline, parent-child
-  supervisor, or polling continuation loop.
+- Use [`docs/choosing-a-pattern.md`](docs/choosing-a-pattern.md) to choose the
+  supervisor or reconciler workflow pattern.
 - Use Agent Canvas, automations, or scripts as the surface that starts and
   observes the workflow.
 

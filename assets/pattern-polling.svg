@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 360" font-family="-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="parrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9" fill="none" stroke="#8a8a8a" stroke-width="1.4"/>
+    </marker>
+    <marker id="parrowGreen" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9" fill="none" stroke="#3fa06d" stroke-width="1.4"/>
+    </marker>
+  </defs>
+
+  <!-- circle of work: wake (top) -> check (upper left) -> decide (lower left) -> act (lower right) -> log & exit (upper right) -> back to wake -->
+
+  <!-- wake -->
+  <rect x="260" y="22" width="140" height="46" rx="8" fill="none" stroke="#3fa06d" stroke-width="2"/>
+  <text x="330" y="42" fill="#3fa06d" font-size="14.5" font-weight="600" text-anchor="middle">wake</text>
+  <text x="330" y="60" fill="#8a8a8a" font-size="11.5" text-anchor="middle">cron / schedule</text>
+
+  <!-- check state -->
+  <rect x="48" y="120" width="140" height="46" rx="8" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+  <text x="118" y="140" fill="#8a8a8a" font-size="14.5" font-weight="600" text-anchor="middle">check state</text>
+  <text x="118" y="158" fill="#8a8a8a" font-size="11.5" text-anchor="middle">what changed?</text>
+
+  <!-- decide -->
+  <rect x="88" y="266" width="130" height="46" rx="8" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+  <text x="153" y="286" fill="#8a8a8a" font-size="14.5" font-weight="600" text-anchor="middle">decide</text>
+  <text x="153" y="304" fill="#8a8a8a" font-size="11.5" text-anchor="middle">what is needed?</text>
+
+  <!-- take one action -->
+  <rect x="390" y="266" width="160" height="46" rx="8" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+  <text x="470" y="286" fill="#8a8a8a" font-size="14.5" font-weight="600" text-anchor="middle">take ONE action</text>
+  <text x="470" y="304" fill="#8a8a8a" font-size="11.5" text-anchor="middle">spawn | record | quiet</text>
+
+  <!-- log & exit -->
+  <rect x="470" y="120" width="140" height="46" rx="8" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+  <text x="540" y="140" fill="#8a8a8a" font-size="14.5" font-weight="600" text-anchor="middle">log + exit</text>
+  <text x="540" y="158" fill="#8a8a8a" font-size="11.5" text-anchor="middle">nothing stays up</text>
+
+  <!-- cycle arrows -->
+  <path d="M 256 62 C 210 78, 160 92, 128 116" fill="none" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#parrow)"/>
+  <path d="M 112 170 C 104 202, 108 234, 128 262" fill="none" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#parrow)"/>
+  <path d="M 222 289 L 386 289" fill="none" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#parrow)"/>
+  <path d="M 508 262 C 528 234, 536 202, 534 170" fill="none" stroke="#8a8a8a" stroke-width="1.5" marker-end="url(#parrow)"/>
+  <path d="M 528 116 C 496 88, 448 70, 406 56" fill="none" stroke="#3fa06d" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#parrowGreen)"/>
+  <text x="500" y="86" fill="#3fa06d" font-size="12">next scheduled tick</text>
+
+  <!-- durable state in the center -->
+  <g>
+    <path d="M 264 172 a 66 11 0 0 0 132 0 v 38 a 66 11 0 0 1 -132 0 z" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+    <ellipse cx="330" cy="172" rx="66" ry="11" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+    <text x="330" y="203" fill="#8a8a8a" font-size="13" text-anchor="middle">durable state</text>
+    <text x="330" y="238" fill="#8a8a8a" font-size="11.5" text-anchor="middle">backlog + worklog, or labels/tickets</text>
+    <text x="330" y="254" fill="#8a8a8a" font-size="11.5" font-style="italic" text-anchor="middle">the only memory between ticks</text>
+  </g>
+
+  <!-- worker, fire and forget -->
+  <rect x="590" y="266" width="150" height="52" rx="8" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+  <text x="665" y="288" fill="#8a8a8a" font-size="13.5" font-weight="600" text-anchor="middle">worker</text>
+  <text x="665" y="306" fill="#8a8a8a" font-size="11.5" text-anchor="middle">runs on its own</text>
+  <line x1="554" y1="289" x2="586" y2="289" stroke="#3fa06d" stroke-width="1.6" marker-end="url(#parrowGreen)"/>
+  <text x="665" y="340" fill="#3fa06d" font-size="12" text-anchor="middle">fire and forget</text>
+
+  <!-- caption -->
+  <text x="330" y="345" fill="#8a8a8a" font-size="12.5" text-anchor="middle">the orchestrator never waits for a worker - the next tick checks on it</text>
+</svg>

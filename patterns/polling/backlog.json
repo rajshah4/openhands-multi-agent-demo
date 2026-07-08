@@ -1,0 +1,16 @@
+{
+  "tasks": [
+    {
+      "id": "task-1",
+      "prompt": "Compare polling and webhooks as triggers for agent orchestration. Exactly 5 bullets, each one sentence, covering latency, reliability, operational cost, failure recovery, and when to choose each."
+    },
+    {
+      "id": "task-2",
+      "prompt": "Explain a reconciliation loop in plain language for a non-engineer, in about 100 words, using a thermostat as the analogy. End with one sentence connecting it to AI agents."
+    },
+    {
+      "id": "task-3",
+      "prompt": "List 5 failure modes of long-running autonomous agents (for example: context drift, stale state, runaway cost) with a one-line mitigation for each."
+    }
+  ]
+}

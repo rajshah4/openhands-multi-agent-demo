@@ -1,2 +1,10 @@
 __pycache__/
 *.pyc
+.venv/
+
+# pattern run artifacts (regenerated every run)
+patterns/parent-child/runs/
+patterns/polling/state*.json
+patterns/polling/WORKLOG*.md
+patterns/polling/results/
+patterns/polling/INSTRUCTIONS.md
