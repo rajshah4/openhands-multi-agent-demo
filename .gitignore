@@ -1,2 +1,10 @@
 __pycache__/
 *.pyc
+.venv/
+
+# pattern run artifacts (regenerated every run)
+patterns/supervisor/runs/
+patterns/reconciler/state*.json
+patterns/reconciler/WORKLOG*.md
+patterns/reconciler/results/
+patterns/reconciler/INSTRUCTIONS.md
