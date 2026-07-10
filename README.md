@@ -56,6 +56,13 @@ is read from `~/.openhands/agent-canvas/api-key.txt`, the API is
 `http://localhost:8000`, and every worker appears as a live conversation in
 the Canvas UI.
 
+Agent Canvas worker slots are harness-agnostic: the same parent-child and
+polling patterns can delegate to native OpenHands, Claude Code through ACP,
+Codex through ACP, or any other ACP-backed agent profile. ACP changes which
+harness runs a worker; it does not change who advances the workflow or where
+the orchestrator keeps state. See
+[Agent Canvas and ACP](docs/agent-canvas-and-acp.md) for the fuller version.
+
 **Pattern 1 - Parent-Child.** One command runs a three-cell lifecycle with
 real child conversations and writes a lifecycle report:
 
@@ -205,11 +212,13 @@ agents, and you do not have to pick one harness for everything:
   (`tool_concurrency_limit > 1`), a parent can even fan out several subagent
   calls in one step. The comparison table is in
   [choosing a pattern](docs/choosing-a-pattern.md#subagents-delegation-inside-one-conversation).
-- **Agent Canvas** runs both patterns locally (`--runtime canvas`) and shows
-  every worker as a live conversation you can open while it runs. Canvas and
-  Enterprise expose different APIs (local conversations vs app-conversations
-  with start tasks). This repo ships one backend for each with the same
-  function surface, so the pattern scripts run on both unchanged.
+- **Agent Canvas** runs the patterns locally (`--runtime canvas`) and shows
+  every worker as a live conversation you can open while it runs. A Canvas
+  worker can be native OpenHands or an ACP-backed agent profile such as Claude
+  Code or Codex; the orchestrator still sees the same start/status/final-response
+  surface. Canvas and Enterprise expose different APIs (local conversations vs
+  app-conversations with start tasks). This repo ships one backend for each with
+  the same function surface, so the pattern scripts run on both unchanged.
 
 Details and code: [Agent Canvas and ACP](docs/agent-canvas-and-acp.md).
 
