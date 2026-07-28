@@ -30,7 +30,7 @@ def local_markdown_targets(path: Path) -> list[Path]:
 
 
 def test_guidance_local_links_exist() -> None:
-    guides = [ROOT / "GETTING_STARTED.md", ROOT / "BEST_PRACTICES.md"]
+    guides = [ROOT / "README.md", ROOT / "BEST_PRACTICES.md"]
     missing = [
         target
         for guide in guides
@@ -41,7 +41,7 @@ def test_guidance_local_links_exist() -> None:
 
 
 def test_getting_started_has_quick_start_and_deeper_guidance() -> None:
-    text = (ROOT / "GETTING_STARTED.md").read_text(encoding="utf-8")
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
     assert text.index("## Three Starting Points") < text.index(
         "## Three Parts of Multi-Agent Orchestration"
     )
@@ -92,7 +92,7 @@ def test_getting_started_has_quick_start_and_deeper_guidance() -> None:
 
 
 def test_getting_started_visuals_exist() -> None:
-    text = (ROOT / "GETTING_STARTED.md").read_text(encoding="utf-8")
+    text = (ROOT / "README.md").read_text(encoding="utf-8")
     visuals = [
         ROOT / "assets" / "start-sdk-subagents.svg",
         ROOT / "assets" / "start-automation-controller.svg",
