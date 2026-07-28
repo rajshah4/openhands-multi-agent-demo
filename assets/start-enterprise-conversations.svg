@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="ent-arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9" fill="none" stroke="#5b8def" stroke-width="1.4"/>
+    </marker>
+  </defs>
+
+  <rect x="260" y="20" width="240" height="54" rx="9" fill="none" stroke="#5b8def" stroke-width="2"/>
+  <text x="380" y="43" fill="#5b8def" font-size="16" font-weight="600" text-anchor="middle">parent controller</text>
+  <text x="380" y="62" fill="#8a8a8a" font-size="12" text-anchor="middle">starts, observes, and gates</text>
+
+  <rect x="42" y="169" width="304" height="86" rx="11" fill="none" stroke="#8a8a8a" stroke-width="1.5"/>
+  <text x="194" y="193" fill="#8a8a8a" font-size="13" font-weight="600" text-anchor="middle">explicit sandbox attachment</text>
+  <rect x="66" y="208" width="114" height="30" rx="6" fill="none" stroke="#8a8a8a" stroke-width="1.2"/>
+  <rect x="208" y="208" width="114" height="30" rx="6" fill="none" stroke="#8a8a8a" stroke-width="1.2"/>
+  <text x="123" y="228" fill="#8a8a8a" font-size="11.5" text-anchor="middle">worker + sandbox</text>
+  <text x="265" y="228" fill="#8a8a8a" font-size="11.5" text-anchor="middle">worker + sandbox</text>
+
+  <rect x="414" y="169" width="304" height="86" rx="11" fill="none" stroke="#8a8a8a" stroke-width="1.5"/>
+  <text x="566" y="193" fill="#8a8a8a" font-size="13" font-weight="600" text-anchor="middle">configured grouping</text>
+  <rect x="438" y="208" width="256" height="30" rx="6" fill="none" stroke="#8a8a8a" stroke-width="1.2"/>
+  <text x="566" y="228" fill="#8a8a8a" font-size="11.5" text-anchor="middle">worker · worker · shared sandbox</text>
+
+  <path d="M330 74 L195 165" fill="none" stroke="#5b8def" stroke-width="1.6" marker-end="url(#ent-arrow)"/>
+  <path d="M430 74 L565 165" fill="none" stroke="#5b8def" stroke-width="1.6" marker-end="url(#ent-arrow)"/>
+  <text x="253" y="118" fill="#5b8def" font-size="12">chosen boundary</text>
+  <text x="492" y="118" fill="#5b8def" font-size="12">instance policy</text>
+
+  <text x="380" y="282" fill="#8a8a8a" font-size="12.5" text-anchor="middle">each worker remains a visible conversation; placement changes the runtime boundary</text>
+</svg>

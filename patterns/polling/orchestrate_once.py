@@ -83,7 +83,13 @@ def load_state(state_path: Path) -> dict[str, Any]:
 
 
 def save_state(state_path: Path, state: dict[str, Any]) -> None:
-    state_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    pending_path = state_path.with_name(state_path.name + ".tmp")
+    pending_path.write_text(
+        json.dumps(state, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    pending_path.replace(state_path)
 
 
 def append_worklog(worklog_path: Path, tick: int, action: str, detail: str) -> None:
@@ -114,7 +120,7 @@ def check_in_flight(state: dict[str, Any], args: argparse.Namespace, results_dir
     in_flight = state["in_flight"]
     # Observe through the runtime that spawned the worker, not today's flag.
     runtime = load_runtime(in_flight.get("runtime", args.runtime))
-    base = runtime.base_url(args.base_url)
+    base = runtime.base_url(in_flight.get("base_url") or args.base_url)
     key = runtime.read_api_key()
     conversation_id = in_flight["conversation_id"]
 
@@ -126,7 +132,12 @@ def check_in_flight(state: dict[str, Any], args: argparse.Namespace, results_dir
         )
 
     final_text = runtime.get_final(base, key, conversation_id)
-    contract = util.parse_contract(final_text)
+    contract_error = ""
+    try:
+        contract = util.parse_contract(final_text)
+    except util.ContractError as exc:
+        contract = {}
+        contract_error = str(exc)
     task_status = "done" if contract.get("status") == "done" and execution_status == "finished" else "failed"
 
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -142,7 +153,8 @@ def check_in_flight(state: dict[str, Any], args: argparse.Namespace, results_dir
     return tick_outcome(
         "recorded",
         f"worker for `{in_flight['task_id']}` finished ({execution_status}); "
-        f"task marked `{task_status}`; result: `{result_path.name}`",
+        f"task marked `{task_status}`; result: `{result_path.name}`"
+        + (f"; contract error: {contract_error}" if contract_error else ""),
     )
 
 
@@ -155,10 +167,12 @@ def claim_and_spawn(state: dict[str, Any], task: dict[str, Any], args: argparse.
     if args.runtime == "canvas":
         # Canvas workers share a local working tree; keep it out of the repo.
         workspace = PATTERN_ROOT / "results" / "canvas-workspace"
-        workspace.mkdir(parents=True, exist_ok=True)
         payload_extra["workspace_dir"] = str(workspace)
     payload = runtime.build_start_payload(
-        prompt=prompt, title=f"reconciler worker {task['id']}", **payload_extra
+        prompt=prompt,
+        title=f"reconciler worker {task['id']}",
+        agent_profile_id=args.agent_profile_id,
+        **payload_extra,
     )
 
     if args.dry_run:
@@ -166,6 +180,8 @@ def claim_and_spawn(state: dict[str, Any], task: dict[str, Any], args: argparse.
         print(json.dumps(payload, indent=2), file=sys.stderr)
         return tick_outcome("dry-run", f"would spawn worker for `{task['id']}`", mutate=False)
 
+    if args.runtime == "canvas":
+        workspace.mkdir(parents=True, exist_ok=True)
     base = runtime.base_url(args.base_url)
     key = runtime.read_api_key()
     worker = runtime.start_worker(base, key, payload)
@@ -176,7 +192,11 @@ def claim_and_spawn(state: dict[str, Any], task: dict[str, Any], args: argparse.
         "conversation_id": worker["id"],
         "ui_url": worker["ui_url"],
         "runtime": args.runtime,
+        "base_url": base,
+        "agent_profile_id": args.agent_profile_id,
     }
+    if worker.get("start_task_id"):
+        state["in_flight"]["start_task_id"] = worker["start_task_id"]
     return tick_outcome("spawned", f"worker for `{task['id']}`: {worker['ui_url']}")
 
 
@@ -244,6 +264,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--base-url", help="override the runtime's base URL")
     parser.add_argument("--env-file", type=Path, help="optional KEY=value env file")
+    parser.add_argument(
+        "--agent-profile-id",
+        help="OpenHands or ACP agent profile id available on the selected runtime",
+    )
     parser.add_argument("--state-file", default="state.json")
     parser.add_argument("--worklog", default="WORKLOG.md")
     parser.add_argument("--watch", action="store_true", help="loop locally instead of running one tick")

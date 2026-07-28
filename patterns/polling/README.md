@@ -50,14 +50,21 @@ Reset and run it again: `python3 orchestrate_once.py --reset`.
 No API key yet? `python3 orchestrate_once.py --dry-run` prints the decision and
 the exact API payload without mutating anything. Running local Agent Canvas?
 `--runtime canvas` spawns the workers as visible local conversations
-([API differences](../../docs/agent-canvas-and-acp.md)).
+in one shared demo folder.
+
+Use a saved native OpenHands or ACP-backed profile on either runtime:
+
+```bash
+python3 orchestrate_once.py --runtime canvas --agent-profile-id <profile-id>
+```
 
 ## The Four Ideas That Make It Work
 
 **1. The orchestrator is stateless; the state is durable.** A tick reads
-`state.json`, acts, writes, and exits. Any tick can crash - the next one
-re-reads state and recovers. There is no long-running process to babysit and
-nothing burning tokens between ticks.
+`state.json`, acts, writes an atomic checkpoint, and exits. A later tick can
+resume from the last completed checkpoint. This teaching implementation
+assumes one controller; production controllers must also reconcile a crash
+during dispatch so they do not create a duplicate worker.
 
 **2. Fire and forget.** A tick that spawns a worker does not wait for it.
 Observing the worker is the *next* tick's job. This is what lets the pattern
@@ -119,6 +126,6 @@ GitHub queries and (optionally) the decision function for a prompt.
 | Replace | With |
 | --- | --- |
 | `backlog.json` | GitHub issues/labels, Jira tickets, a queue, a database table |
-| The worker prompt | Any bounded job; workers can be OpenHands conversations or ACP-connected harnesses - see [Agent Canvas and ACP](../../docs/agent-canvas-and-acp.md) |
+| The worker prompt | Any bounded job; workers can use native OpenHands or ACP-backed agent profiles |
 | One worker slot | Parallel slots for non-conflicting work (ohtv runs issue-work and PR-work slots side by side) |
-| The worker itself | An entire parent-child lifecycle - see [composition](../../docs/choosing-a-pattern.md#compose-them) |
+| The worker itself | An entire bounded parent-child lifecycle |

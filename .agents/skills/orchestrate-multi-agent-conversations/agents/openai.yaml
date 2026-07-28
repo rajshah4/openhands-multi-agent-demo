@@ -1,0 +1,4 @@
+interface:
+  display_name: "Orchestrate Multi-Agent Conversations"
+  short_description: "Design reliable OpenHands multi-agent systems"
+  default_prompt: "Use $orchestrate-multi-agent-conversations to choose and validate the execution boundary, worker implementation, control pattern, durable state, recovery behavior, and human gates for this multi-agent workflow."
