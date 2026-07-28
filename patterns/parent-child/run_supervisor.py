@@ -21,6 +21,11 @@ The two runtimes expose different APIs (app-conversations + start tasks vs.
 local conversations + agent_final_response); the pattern does not care - both
 backends in ../common expose the same start/status/final surface.
 
+On Enterprise, this script starts first-class conversations but leaves sandbox
+placement to the installed grouping configuration. Controllers that require
+deterministic placement should prepare a sandbox with the common Enterprise
+helper and attach the conversation by sandbox ID.
+
 This is the same pattern that runs a full software factory in
 https://github.com/rajshah4/sdlc-automation-github-demo - there the cells are
 story-to-pr / code-review / qa and the children work on a real repository.
@@ -100,6 +105,7 @@ def start_and_wait_cell(
         prompt=prompt,
         title=f"{args.run_id} {cell}",
         llm_model=args.child_llm_model,
+        agent_profile_id=args.agent_profile_id,
         **payload_extra,
     )
 
@@ -125,9 +131,13 @@ def start_and_wait_cell(
         return entry
 
     final_text = runtime.get_final(base, key, entry["id"])
-    contract = util.parse_contract(final_text)
+    try:
+        contract = util.parse_contract(final_text)
+    except util.ContractError as exc:
+        contract = {}
+        entry["error"] = str(exc)
     entry["execution_status"] = status
-    entry["status"] = contract.get("status", status)
+    entry["status"] = contract.get("status", "failed")
     entry["contract"] = contract
     entry["final_text"] = final_text
     write_text(run_dir / f"{cell}.final.md", final_text + ("\n" if final_text else ""))
@@ -229,7 +239,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--base-url", help="override the runtime's base URL")
     parser.add_argument("--env-file", type=Path, help="optional KEY=value env file")
-    parser.add_argument("--child-llm-model", help="optional model override for child conversations (cloud runtime)")
+    agent_choice = parser.add_mutually_exclusive_group()
+    agent_choice.add_argument(
+        "--child-llm-model",
+        help="optional model override for native OpenHands children",
+    )
+    agent_choice.add_argument(
+        "--agent-profile-id",
+        help="OpenHands or ACP agent profile id available on the selected runtime",
+    )
     parser.add_argument("--cell-timeout-seconds", type=int, default=1200)
     parser.add_argument("--poll-seconds", type=int, default=15)
     parser.add_argument("--dry-run", action="store_true", help="print API payloads instead of calling OpenHands")

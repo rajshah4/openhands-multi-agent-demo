@@ -6,10 +6,10 @@ Agent Canvas exposes a different API than OpenHands Cloud/Enterprise:
 | | Cloud/Enterprise (`openhands_conversations.py`) | Agent Canvas (this module) |
 | --- | --- | --- |
 | Create | POST /api/v1/app-conversations -> start task -> poll | POST /api/conversations -> id immediately |
-| Auth | Authorization: Bearer <api key> | X-Session-API-Key from ~/.openhands/agent-canvas/api-key.txt |
+| Auth | Authorization: Bearer <api key> | X-Session-API-Key from the Canvas environment or persisted key |
 | Settings | Held server-side in the secret store | Client round-trips encrypted settings |
 | Final response | Reconstructed from the events search | GET /api/conversations/{id}/agent_final_response |
-| Worker state | Isolated sandbox per conversation | Shared local working tree |
+| Worker state | Selected by Enterprise configuration | Local folder or per-conversation worktree |
 
 This module exposes the same function surface as `openhands_conversations.py`
 (`build_start_payload`, `start_worker`, `get_status`, `get_final`,
@@ -37,6 +37,7 @@ TERMINAL_EXECUTION_STATUSES = {"finished", "error", "stuck", "stopped"}
 DEFAULT_TOOLS = [
     {"name": "terminal", "params": {}},
     {"name": "file_editor", "params": {}},
+    {"name": "task_tracker", "params": {}},
 ]
 
 
@@ -52,18 +53,25 @@ def base_url(explicit: str | None = None) -> str:
     return (
         explicit
         or os.getenv("AGENT_CANVAS_BASE_URL")
+        or os.getenv("AGENT_CANVAS_BACKEND")
+        or os.getenv("AGENT_CANVAS_BASE")
         or DEFAULT_BASE_URL
     ).rstrip("/")
 
 
 def read_api_key() -> str:
-    for env_name in ("AGENT_CANVAS_API_KEY", "SESSION_API_KEY"):
+    for env_name in (
+        "AGENT_CANVAS_API_KEY",
+        "SESSION_API_KEY",
+        "OH_SESSION_API_KEYS_0",
+        "LOCAL_BACKEND_API_KEY",
+    ):
         value = os.getenv(env_name)
         if value:
             return value.strip()
     for key_file in (
-        Path.home() / ".openhands" / "agent-canvas" / "api-key.txt",
         Path.home() / ".openhands" / "agent-canvas" / "session-api-key.txt",
+        Path.home() / ".openhands" / "agent-canvas" / "api-key.txt",
     ):
         if key_file.exists():
             value = key_file.read_text(encoding="utf-8").strip()
@@ -71,7 +79,7 @@ def read_api_key() -> str:
                 return value
     raise CanvasAPIError(
         "No Agent Canvas API key found. Set AGENT_CANVAS_API_KEY or start local "
-        "Agent Canvas so ~/.openhands/agent-canvas/api-key.txt exists."
+        "Agent Canvas so its persisted session key exists."
     )
 
 
@@ -133,10 +141,14 @@ def build_start_payload(
     run: bool = True,
     workspace_dir: str | None = None,
     max_iterations: int = 100,
+    agent_profile_id: str | None = None,
 ) -> dict[str, Any]:
     """The static part of the payload (dry-run printable, no server needed)."""
-    return {
-        "secrets_encrypted": True,
+    if llm_model:
+        raise ValueError(
+            "Canvas does not accept a direct llm_model override; select a saved agent profile"
+        )
+    payload: dict[str, Any] = {
         "workspace": {
             "kind": "LocalWorkspace",
             "working_dir": workspace_dir or str(Path.cwd()),
@@ -152,6 +164,14 @@ def build_start_payload(
             "run": run,
         },
     }
+    if agent_profile_id:
+        payload["agent_profile_id"] = agent_profile_id
+    else:
+        # Inline OpenHands settings are encrypted by the Canvas settings API.
+        # Profile-backed conversations, including ACP profiles, are resolved
+        # server-side and must not be forced through this encrypted-settings path.
+        payload["secrets_encrypted"] = True
+    return payload
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +185,8 @@ def start_worker(
 ) -> dict[str, Any]:
     """Create a conversation; unlike Cloud, the id comes back immediately."""
     full_payload = dict(payload)
-    full_payload["agent_settings"] = _agent_settings(base, key)
+    if "agent_profile_id" not in full_payload:
+        full_payload["agent_settings"] = _agent_settings(base, key)
     response = request_json("POST", f"{base}/api/conversations", key, full_payload)
     conversation_id = response.get("id")
     if not conversation_id:

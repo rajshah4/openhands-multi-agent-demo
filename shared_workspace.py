@@ -23,7 +23,6 @@ Usage:
 import argparse
 import os
 import sys
-import time
 
 from pydantic import SecretStr
 
@@ -37,7 +36,7 @@ from openhands.sdk import (
 from openhands.sdk.context import Skill
 from openhands.sdk.agent import ACPAgent
 from openhands.sdk.subagent import register_agent, register_file_agents
-from openhands.tools.delegate import DelegateTool, DelegationVisualizer
+from openhands.tools.delegate import DelegationVisualizer
 from openhands.tools.preset.default import register_builtins_agents
 from openhands.tools.task import TaskToolSet
 
@@ -162,7 +161,6 @@ def setup_claude_code_agent() -> ACPAgent | None:
     print("  ✓ Claude Code (ACP) — Anthropic")
     return ACPAgent(
         acp_command=["npx", "-y", "@agentclientprotocol/claude-agent-acp"],
-        acp_env={"ANTHROPIC_API_KEY": anthropic_key},
     )
 
 
@@ -175,7 +173,6 @@ def setup_gemini_agent() -> ACPAgent | None:
     print("  ✓ Gemini CLI (ACP) — Google")
     return ACPAgent(
         acp_command=["gemini", "--acp"],
-        acp_env={"GEMINI_API_KEY": gemini_key},
     )
 
 
@@ -286,7 +283,7 @@ def run_demo(args):
         if claude_agent:
             run_with_acp(claude_agent, gemini_agent, llm, task_description, work_dir)
         else:
-            run_with_delegation(llm, task_description, work_dir)
+            run_with_subagents(llm, task_description, work_dir)
     finally:
         if workspace:
             print("\n☁️  Cloud sandbox kept alive — check OpenHands Cloud UI for conversations")
@@ -312,7 +309,11 @@ def run_with_acp(
     print("─" * 70)
 
     try:
-        cc_conversation = Conversation(agent=claude_agent, workspace=workspace)
+        cc_conversation = Conversation(
+            agent=claude_agent,
+            workspace=workspace,
+            secrets={"ANTHROPIC_API_KEY": os.environ["ANTHROPIC_API_KEY"]},
+        )
         cc_conversation.send_message(
             f"Please implement the following:\n\n{task}\n\n"
             "Create the file(s) in the current working directory."
@@ -332,7 +333,11 @@ def run_with_acp(
         print("─" * 70)
 
         try:
-            gemini_conversation = Conversation(agent=gemini_agent, workspace=workspace)
+            gemini_conversation = Conversation(
+                agent=gemini_agent,
+                workspace=workspace,
+                secrets={"GEMINI_API_KEY": os.environ["GEMINI_API_KEY"]},
+            )
             gemini_conversation.send_message(
                 "Look at all the .py files in the current directory that were "
                 "just created. Write comprehensive pytest tests for them in a "
@@ -390,14 +395,14 @@ def run_with_acp(
     print("=" * 70)
 
 
-def run_with_delegation(llm: LLM, task: str, workspace: str):
+def run_with_subagents(llm: LLM, task: str, workspace: str):
     """
     Path B: Pure OpenHands multi-agent delegation.
-    Shows DelegateTool spawning implementer + reviewer in parallel.
+    Uses TaskToolSet for ordered implement -> review delegation.
     """
     orchestrator = Agent(
         llm=llm,
-        tools=[Tool(name=DelegateTool.name)],
+        tools=[Tool(name=TaskToolSet.name)],
     )
     conversation = Conversation(
         agent=orchestrator,
@@ -417,7 +422,7 @@ def run_with_delegation(llm: LLM, task: str, workspace: str):
         f"**Step 3 — Report:** Summarize what was built and the review findings. "
         f"If the review found MAJOR or CRITICAL issues, ask the implementer to "
         f"fix them.\n\n"
-        f"Use the delegate tool to coordinate these agents."
+        f"Use the task tool to coordinate these agents in order."
     )
     conversation.run()
 

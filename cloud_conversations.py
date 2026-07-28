@@ -14,7 +14,7 @@ Three vendors, three conversations, one repo. Watch each one live
 in the Cloud UI.
 
 Usage:
-  export OPENHANDS_CLOUD_API_KEY="your-cloud-api-key"
+  export OPENHANDS_API_KEY="your-api-key"
   python cloud_conversations.py
   python cloud_conversations.py --task csv-tool
   python cloud_conversations.py --repo youruser/yourrepo
@@ -22,15 +22,12 @@ Usage:
 
 import argparse
 import os
-import random
-import string
 import sys
 import time
 
-import requests
+from patterns.common import openhands_conversations as conversations
 
-CLOUD_BASE = "https://app.all-hands.dev"
-API_V1 = f"{CLOUD_BASE}/api/v1/app-conversations"
+CLOUD_BASE = conversations.base_url()
 
 
 # ── Task definitions ─────────────────────────────────────────────────
@@ -90,7 +87,7 @@ TASKS = {
 HARNESS_INSTRUCTIONS = {
     "claude-code": (
         "IMPORTANT: You MUST use Claude Code to complete this task.\n"
-        "1. Install Claude Code: npm install -g @anthropic-ai/claude-code\n"
+        "1. Claude Code must already be installed in this runtime image.\n"
         "2. The ANTHROPIC_API_KEY environment variable is available.\n"
         "3. Run Claude Code with: claude -p '<task below>' "
         "--allowedTools 'Edit,Write,Read,Bash' --output-format text\n"
@@ -100,7 +97,7 @@ HARNESS_INSTRUCTIONS = {
     ),
     "gemini-cli": (
         "IMPORTANT: You MUST use Gemini CLI to complete this task.\n"
-        "1. Install Gemini CLI: npm install -g @google/gemini-cli\n"
+        "1. Gemini CLI must already be installed in this runtime image.\n"
         "2. The GEMINI_API_KEY environment variable is available.\n"
         "3. Run Gemini with: gemini -p '<task below>'\n"
         "4. After Gemini finishes, verify the output files exist.\n"
@@ -138,60 +135,28 @@ def parse_args():
 # ── Cloud API ────────────────────────────────────────────────────────
 
 def get_headers():
-    api_key = os.getenv("OPENHANDS_CLOUD_API_KEY")
+    api_key = os.getenv("OPENHANDS_API_KEY") or os.getenv("OPENHANDS_CLOUD_API_KEY")
     if not api_key:
-        print("ERROR: OPENHANDS_CLOUD_API_KEY required.")
+        print("ERROR: OPENHANDS_API_KEY required.")
         print("  Get one at: https://app.all-hands.dev/settings/api-keys")
         sys.exit(1)
-    return {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
+    return conversations.build_headers(api_key)
 
 
 def start_conversation(headers, prompt, repo):
-    resp = requests.post(API_V1, headers=headers, json={
-        "initial_message": {"content": [{"type": "text", "text": prompt}]},
-        "selected_repository": repo,
-    })
-    resp.raise_for_status()
-    task_id = resp.json()["id"]
-
-    for _ in range(60):
-        r = requests.get(f"{API_V1}/start-tasks", headers=headers,
-                         params={"ids": task_id})
-        r.raise_for_status()
-        tasks = r.json()
-        if tasks and tasks[0].get("status") == "READY":
-            return tasks[0]["app_conversation_id"]
-        if tasks and tasks[0].get("status") == "ERROR":
-            print(f"    ❌ {tasks[0].get('error', 'Failed')}")
-            sys.exit(1)
-        status = tasks[0].get("status", "?") if tasks else "waiting"
-        print(f"    ⏳ {status}...")
-        time.sleep(5)
-
-    print("    ❌ Timeout")
-    sys.exit(1)
+    payload = conversations.build_start_payload(
+        prompt=prompt,
+        title="multi-harness worker",
+        repository=repo,
+    )
+    return conversations.start_worker(CLOUD_BASE, headers, payload)["id"]
 
 
 def wait_for_completion(headers, conv_id):
     last = None
     for _ in range(120):
-        r = requests.get(API_V1, headers=headers, params={"ids": conv_id})
-        r.raise_for_status()
-        convs = r.json()
-        if not convs:
-            time.sleep(15)
-            continue
-        c = convs[0]
-        if c.get("sandbox_status") in ("ERROR", "MISSING"):
-            return "error"
-        es = c.get("execution_status")
-        if es in ("finished", "error", "stuck"):
-            return es
-        if es == "waiting_for_confirmation":
-            print("    ⚠️  Needs confirmation — check Cloud UI")
+        es = conversations.get_status(CLOUD_BASE, headers, conv_id)
+        if es in conversations.TERMINAL_EXECUTION_STATUSES:
             return es
         if es != last:
             print(f"    🔄 {es or 'starting'}...")

@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="auto-arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9" fill="none" stroke="#5b8def" stroke-width="1.4"/>
+    </marker>
+    <marker id="auto-return" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9" fill="none" stroke="#8a8a8a" stroke-width="1.4"/>
+    </marker>
+  </defs>
+
+  <rect x="40" y="107" width="132" height="62" rx="9" fill="none" stroke="#8a8a8a" stroke-width="1.5"/>
+  <text x="106" y="132" fill="#8a8a8a" font-size="14" font-weight="600" text-anchor="middle">schedule</text>
+  <text x="106" y="151" fill="#8a8a8a" font-size="12" text-anchor="middle">or event</text>
+
+  <rect x="238" y="88" width="218" height="100" rx="10" fill="none" stroke="#5b8def" stroke-width="2"/>
+  <text x="347" y="116" fill="#5b8def" font-size="16" font-weight="600" text-anchor="middle">controller tick</text>
+  <text x="347" y="139" fill="#8a8a8a" font-size="12.5" text-anchor="middle">load · observe · act</text>
+  <text x="347" y="158" fill="#8a8a8a" font-size="12.5" text-anchor="middle">checkpoint · exit</text>
+
+  <rect x="520" y="35" width="196" height="58" rx="9" fill="none" stroke="#8a8a8a" stroke-width="1.5"/>
+  <text x="618" y="59" fill="#8a8a8a" font-size="14" font-weight="600" text-anchor="middle">workflow state</text>
+  <text x="618" y="78" fill="#8a8a8a" font-size="12" text-anchor="middle">automation KV or Git</text>
+
+  <rect x="520" y="183" width="196" height="58" rx="9" fill="none" stroke="#8a8a8a" stroke-width="1.5"/>
+  <text x="618" y="207" fill="#8a8a8a" font-size="14" font-weight="600" text-anchor="middle">worker conversations</text>
+  <text x="618" y="226" fill="#8a8a8a" font-size="12" text-anchor="middle">Enterprise or Agent Canvas</text>
+
+  <line x1="172" y1="138" x2="234" y2="138" stroke="#5b8def" stroke-width="1.6" marker-end="url(#auto-arrow)"/>
+  <path d="M456 112 L516 76" fill="none" stroke="#5b8def" stroke-width="1.5" marker-end="url(#auto-arrow)"/>
+  <path d="M516 92 L458 126" fill="none" stroke="#8a8a8a" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#auto-return)"/>
+  <path d="M456 158 L516 194" fill="none" stroke="#5b8def" stroke-width="1.5" marker-end="url(#auto-arrow)"/>
+  <path d="M516 210 L458 174" fill="none" stroke="#8a8a8a" stroke-width="1.2" stroke-dasharray="4 4" marker-end="url(#auto-return)"/>
+
+  <text x="380" y="278" fill="#8a8a8a" font-size="12.5" text-anchor="middle">each run is temporary; durable state lets the next run continue safely</text>
+</svg>

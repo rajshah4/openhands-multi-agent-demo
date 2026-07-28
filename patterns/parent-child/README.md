@@ -17,6 +17,12 @@ Use this pattern when one request should produce one complete, visible
 lifecycle: the supervisor stays alive for the run, starts each child in order,
 gates on each child's final response, and writes a report a human can act on.
 
+On Enterprise, these are first-class conversations. This helper does not
+guarantee one sandbox per child: placement follows the instance's
+sandbox-grouping configuration. When exact placement is required, use the
+explicit sandbox creation and attachment functions in
+[`../common/openhands_conversations.py`](../common/openhands_conversations.py).
+
 ## Run It
 
 ```bash
@@ -54,9 +60,19 @@ Running local Agent Canvas? Children become visible local conversations:
 python3 run_supervisor.py --runtime canvas
 ```
 
-Canvas uses a different API than Cloud/Enterprise (and a shared working tree
-instead of isolated sandboxes) - see
-[Agent Canvas and ACP](../../docs/agent-canvas-and-acp.md).
+This demo gives Canvas children one shared local folder. Agent Canvas can also
+create a separate Git worktree per conversation when the workflow needs local
+filesystem separation.
+
+To use a saved OpenHands or ACP agent profile on either platform:
+
+```bash
+python3 run_supervisor.py --runtime canvas --agent-profile-id <profile-id>
+```
+
+The profile must already exist on the selected Enterprise or Agent Canvas
+backend. See the [OpenHands ACP guide](https://docs.openhands.dev/sdk/guides/agent-acp)
+for the underlying ACP execution model.
 
 ## The Three Ideas That Make It Work
 
@@ -72,13 +88,14 @@ next_gate: <next-cell-or-stop>
 The supervisor gates on `status` alone - it never reads a child's event log.
 If a child returns `needs-human` or `failed`, the lifecycle stops and says so.
 
-**2. Children are sandboxed, so evidence travels in the final response.** Each
-child runs in its own sandbox. Files it writes are invisible to the supervisor
-and to later cells. That is why every prompt says: paste the implementation,
-the tests, and the real test output into your final response. (When children
-work on a real repository, durable output travels through git - a branch or a
-PR - instead. See the state-model notes in the
-[sdlc-automation-github-demo](https://github.com/rajshah4/sdlc-automation-github-demo).)
+**2. The final response is the reliable handoff.** Each child has a separate
+conversation history, but filesystem sharing depends on Enterprise placement
+or the selected Canvas workspace. The supervisor therefore does not assume
+that files are shared or isolated. Every prompt puts the implementation,
+tests, and real output in the final response. When children work on a real
+repository, durable output travels through Git—a branch or a PR—instead. See
+the state-model notes in the
+[sdlc-automation-github-demo](https://github.com/rajshah4/sdlc-automation-github-demo).
 
 **3. Each cell distrusts the previous one just enough.** The check cell
 re-runs the build cell's tests itself and probes edge cases the build skipped.
@@ -107,7 +124,7 @@ That repo has two live-validated variants: OpenHands Enterprise/Cloud
 | Replace | With |
 | --- | --- |
 | The cells | Any bounded stages: research -> draft -> critique, migrate -> verify, triage -> fix -> test |
-| The workers | OpenHands conversations (default), or ACP-connected harnesses like Claude Code / Gemini CLI - see [Agent Canvas and ACP](../../docs/agent-canvas-and-acp.md) |
+| The workers | Native OpenHands agents or saved ACP-backed profiles such as Claude Code, Codex, or Gemini CLI |
 | The trigger | Run the script by hand, from a webhook, from a Jira/GitHub automation, or start the supervisor as an OpenHands conversation itself |
 | The gates | Whatever statuses your workflow needs - keep the vocabulary small |
 

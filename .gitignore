@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 .venv/
+.DS_Store
+.pytest_cache/
 
 # pattern run artifacts (regenerated every run)
 patterns/parent-child/runs/
