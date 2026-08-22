@@ -1,510 +1,404 @@
 # Multi-Agent Orchestration with OpenHands
 
-Multi-agent orchestration is not only about deciding what each agent does. You
-also need to decide how agents are started, how work moves between them, and
-where progress survives when a run stops. OpenHands supplies the agents,
-conversations, and runtime options; you choose the control model that fits
-your stack and the amount of control you need.
+This repository shows practical ways to coordinate multiple OpenHands agents.
+The examples focus on the decisions that make a multi-agent system reliable:
+who starts the agents, where they work, how results move between them, and
+where progress survives when a controller stops.
 
-There are three practical starting points.
+The examples are intentionally small. Use them to learn the control patterns,
+then replace the demo prompts, state, and validation with your own workflow.
 
-## Three Starting Points
+## Start Here
 
-| Approach | How it works | Execution boundary | Best for |
-| --- | --- | --- | --- |
-| [Software SDK orchestration](#1-software-sdk-orchestration) | Your code is the controller: it starts agents or subagents, handles handoffs, and owns workflow state. | You choose the SDK workspace or agent server. The example uses one shared runtime. | Developers who need maximum control and already have a backend or Python service. |
-| [Polling and automations](#2-polling-and-automations) | A schedule or event starts an automation. Each run can perform one bounded step, trigger the next operation, or reconcile a longer workflow. | Runs can hand off through events and durable records; an optional controller can also manage Enterprise or Agent Canvas workers. | Work that arrives on schedules or events, spans runs, or naturally advances through a system of record. |
-| [Parent-child conversations](#3-parent-child-conversations) | One live parent owns the request, starts first-class child conversations for bounded tasks, checks their results, and applies gates. | Enterprise children have separate conversation histories; sandbox placement follows instance configuration unless the controller explicitly prepares and attaches a sandbox. | Complex, bounded workflows that need one accountable coordinator plus visible worker records or an explicitly selected runtime boundary. |
+There are three useful starting points:
 
-These approaches can be combined. An automation can start an SDK controller,
-and a first-class child conversation can use SDK subagents internally.
+| Approach | Start here when | Working example |
+| --- | --- | --- |
+| [SDK orchestration](#1-sdk-orchestration) | One application or conversation should delegate bounded work to a few trusted specialists. | [`shared_workspace.py`](shared_workspace.py) |
+| [Automations and reconciliation](#2-automations-and-reconciliation) | Work arrives over time, spans controller runs, or must wait for CI, external systems, or people. | [`patterns/polling`](patterns/polling/) |
+| [Parent-child conversations](#3-parent-child-conversations) | One bounded request needs an accountable supervisor plus separately visible workers and gates. | [`patterns/parent-child`](patterns/parent-child/) |
 
-### 1. Software SDK orchestration
+The approaches compose. A scheduled automation can launch a parent-child
+lifecycle, and any first-class worker conversation can use SDK subagents for
+smaller specialist tasks.
+
+If you want to inspect a control loop without creating a conversation, start
+with one of the dry runs:
+
+```bash
+# A restartable reconciliation tick
+cd patterns/polling
+python3 orchestrate_once.py --dry-run
+
+# A live parent with gated child assignments
+cd ../parent-child
+python3 run_supervisor.py --dry-run
+```
+
+## The Core Model
+
+Do not choose a multi-agent architecture as one indivisible bundle. Make three
+separate decisions:
+
+| Decision | Question | Typical choices |
+| --- | --- | --- |
+| **Execution** | What do workers share: filesystem, credentials, compute, timeout, and failures? | SDK subagents, isolated conversations, grouped conversations, Agent Canvas |
+| **Coordination** | Who observes progress and decides what happens next? | Application controller, live parent, scheduled reconciler, event handoff, persistent service |
+| **Workflow state** | Where do tasks, attempts, active workers, results, and gates survive? | Automation KV, files and Git, GitHub or Jira, application database |
+
+A **conversation** is an ownership, history, and audit boundary. A **sandbox**
+is a compute, filesystem, credential, and failure boundary. Creating a new
+conversation does not by itself guarantee a new sandbox.
+
+An **automation** answers when a controller runs. It does not replace the
+controller logic or durable state needed to continue a workflow across runs.
+
+That separation is the main idea behind every example in this repository.
+
+## 1. SDK Orchestration
 
 ![One parent agent delegating to subagents inside a shared runtime](assets/start-sdk-subagents.svg)
 
-Your Python code creates the controller and decides when to delegate, wait,
-validate, or stop. In the simplest form, one OpenHands conversation owns the
-task and delegates bounded work through `TaskToolSet`.
-See the [OpenHands Software Agent SDK documentation](https://docs.openhands.dev/sdk/)
-for the full framework.
+Your Python application is the controller. It starts agents or subagents,
+passes assignments, waits for results, validates them, and decides when to
+stop.
 
-**Good when:** A task needs a few researchers, reviewers, test planners, or
-other specialists that can safely share a filesystem, credentials, timeout,
-and failure scope.
+**Use it when:** one bounded task needs a few researchers, reviewers, test
+planners, or other specialists that can safely share a runtime and failure
+scope.
 
-**How it is assembled:**
+**Typical composition:**
 
-- **Execution:** one conversation and one runtime
-- **Control:** the live parent delegates and waits for results
-- **Workflow state:** parent history, subagent task IDs, and an optional final
-  report
+- **Execution:** one conversation and one shared runtime
+- **Coordination:** the application or live parent delegates and waits
+- **Workflow state:** parent history, subagent task IDs, and an optional report
 
-The shared-runtime example here is only one SDK composition. You can also:
+[`shared_workspace.py`](shared_workspace.py) demonstrates an OpenHands coding
+team in one workspace. It includes native subagent delegation through
+`TaskToolSet` and ACP-backed agent paths.
 
-- register specialized agents in Python or as
-  [file-based agents](https://docs.openhands.dev/sdk/guides/agent-file-based),
-  then use
-  [TaskToolSet](https://docs.openhands.dev/sdk/guides/task-tool-set) for
-  sequential, resumable delegation
-- run independent tool or subagent calls concurrently with the SDK's
-  experimental
+The SDK also supports:
+
+- specialized Python or
+  [file-based agents](https://docs.openhands.dev/sdk/guides/agent-file-based)
+- sequential and resumable delegation with
+  [TaskToolSet](https://docs.openhands.dev/sdk/guides/task-tool-set)
+- experimental
   [parallel tool execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution)
-- mix native OpenHands agents with
-  [ACP-backed agents](https://docs.openhands.dev/sdk/guides/agent-acp), choose
-  local or remote workspaces, and
-  [persist conversations](https://docs.openhands.dev/sdk/guides/convo-persistence)
-  across application runs
+- local or remote workspaces and
+  [conversation persistence](https://docs.openhands.dev/sdk/guides/convo-persistence)
+- alternative coding agents through
+  [ACP](https://docs.openhands.dev/sdk/guides/agent-acp)
 
-Start with [`shared_workspace.py`](shared_workspace.py), which contains
-TaskToolSet and ACP-backed agent paths. The
-[SDK subagent guidance](BEST_PRACTICES.md#sdk-subagents) explains the boundary
-in more detail.
+### Important boundary
 
-### 2. Polling and automations
+SDK subagents are excellent for bounded specialist help inside one work cell.
+They usually share the parent's filesystem, credentials, compute, timeout, and
+failure scope. Use first-class child conversations when workers need separate
+audit records, independently chosen runtimes, or stronger isolation.
 
-![One polling implementation: a schedule or event starts a temporary controller that reads workflow state and manages worker conversations](assets/start-automation-controller.svg)
+## 2. Automations and Reconciliation
 
-A schedule, webhook, or other event starts an automation run. That run can do
-one bounded operation and emit the event for the next automation, or it can
-invoke a temporary controller that reloads progress, reconciles existing work,
-takes a bounded action, records what happened, and exits. Polling is one
-automation pattern, not a requirement.
+![A schedule or event starting a temporary controller that reads workflow state and manages worker conversations](assets/start-automation-controller.svg)
 
-**Good when:** Work begins on a schedule or external event, spans multiple
-runs, can wait between checks, or naturally advances through a system of
-record.
+A schedule, webhook, or application event starts a temporary controller. The
+controller reloads durable state, compares desired and actual progress, takes
+a bounded action, records what happened, and exits. A later run continues from
+the checkpoint.
 
-**How it is assembled:**
+**Use it when:** work arrives continuously, spans hours or days, can wait
+between checks, or naturally advances through GitHub, Jira, a Kanban board, or
+another system of record.
 
-- **Execution:** one or more automation runs and agent conversations
-- **Control:** direct event handoffs, scheduled or event-triggered
-  reconciliation, or a combination
-- **Workflow state:** any durable record appropriate to the workflow, such as
-  Jira, GitHub, automation KV, Git, or an application database
+**Typical composition:**
 
-#### Example: Jira story to reviewed and tested PR
+- **Execution:** automation runs plus one or more worker conversations
+- **Coordination:** scheduled reconciliation, event-triggered ticks, direct
+  event handoffs, or a combination
+- **Workflow state:** automation KV, Git, issues or tickets, or an application
+  database
 
-A team can use several events to hand one story between independent agents:
+### Restartable polling example
+
+[`patterns/polling`](patterns/polling/) contains a small reconciliation loop.
+Each tick reads its state, performs one convergent operation, checkpoints, and
+exits. The next tick observes the worker rather than waiting for it.
 
 ```text
-Jira story or qualifying comment
-  -> build automation
-  -> implementation agent opens a GitHub pull request
-  -> pull-request event
-  -> code-review agent posts an independent review
-  -> review-passed or ready-for-QA event
-  -> QA agent runs acceptance checks and reports the result
-  -> Jira and GitHub receive the final status
-  -> human reviews and decides whether to merge
+wake -> read state -> decide -> act or stay quiet -> checkpoint -> exit
+  ^                                                               |
+  '------------------------ next tick -----------------------------'
 ```
 
-This is multi-agent because each stage starts a separate bounded agent with a
-different responsibility and output contract. The agents do not need to talk
-directly: Jira and GitHub events provide the handoffs, while the story, branch,
-pull request, review, and QA result form the durable workflow record.
-
-Each automation records the Jira key, triggering event, worker conversation
-ID, branch, and PR before acting so a retry does not create duplicate work. A
-blocking review prevents the QA automation from being triggered, and a failed
-QA result returns the workflow to a human or a new remediation event rather
-than silently advancing it.
-
-On a publicly reachable deployment, Jira can trigger the automation through a
-webhook. A private or local deployment can run the same flow by polling Jira
-on a schedule. The
-[SDLC automation demo](https://github.com/rajshah4/sdlc-automation-github-demo)
-shows this event-driven build, review, and QA shape as a larger
-software-delivery workflow.
-
-This repository includes polling as one concrete implementation. Inspect one
-controller run without creating a conversation:
+Inspect a tick without creating a conversation:
 
 ```bash
 cd patterns/polling
 python3 orchestrate_once.py --dry-run
 ```
 
-The [polling controller example](patterns/polling/) contains that
-reconciliation logic and supports Enterprise and Agent Canvas workers. An
-event-driven chain such as the Jira example above does not need to use this
-controller.
+The teaching example uses local files so the state is easy to inspect. A
+production automation running in ephemeral infrastructure should use a durable
+store such as automation KV, GitHub or Jira, or an application database.
 
-This can be a lower-code integration at the trigger layer, but the workflow
-still needs explicit state, duplicate prevention, result validation, and
-recovery behavior. Durable workflow state tells each run or downstream
-automation what earlier work already did.
+### Event-driven example: Jira story to reviewed PR
 
-### 3. Parent-child conversations
+Polling is one trigger, not a requirement. A workflow with natural external
+events can hand work directly between bounded agents:
 
-![A parent controller starting first-class Enterprise conversations with explicit or configuration-driven sandbox placement](assets/start-enterprise-conversations.svg)
+```text
+Jira story or qualifying comment
+  -> implementation automation
+  -> agent opens a GitHub pull request
+  -> pull-request event
+  -> independent review agent
+  -> review-passed or ready-for-QA event
+  -> QA agent
+  -> status returns to Jira and GitHub
+  -> human decides whether to merge
+```
 
-A live parent accepts the initial request, breaks it into bounded assignments,
-starts first-class OpenHands child conversations, observes their status,
-applies gates, and produces a lifecycle report. Every worker has its own
-visible conversation and fresh history; the parent carries the workflow-level
-context and remains the single point of accountability. Enterprise can place
-those conversations in isolated sandboxes or group trusted workers into
-shared runtime capacity. Creating a first-class conversation alone does not
-select either placement: the instance grouping configuration applies unless
-the controller explicitly creates a sandbox and attaches the conversation.
+The agents do not need to talk directly. Jira, GitHub, the branch, the pull
+request, and the validation results provide the handoffs and durable record.
+Retries remain safe when every stage records stable identifiers and checks
+whether the intended action already happened.
 
-**Good when:** Workers need separate histories, visible audit records, or
-different runtime boundaries, and one parent can remain active for the
-bounded lifecycle.
+The
+[SDLC Automation Demo](https://github.com/rajshah4/sdlc-automation-github-demo)
+contains a larger GitHub-native version of this build, review, and QA flow.
 
-**How it is assembled:**
+### Three real reconciliation implementations
 
-- **Execution:** first-class Enterprise conversations; configured placement by
-  default, or explicit sandbox creation and attachment when required
-- **Control:** one live parent starts children, waits, and applies gates
-- **Workflow state:** parent run record and child IDs, with Git or tickets for
-  durable artifacts
+The decision-maker can be deterministic code, an LLM, or a hybrid of both:
 
-#### Example: explicitly isolated build, review, and QA
+| Example | Trigger and decision loop | Durable state | Useful lesson |
+| --- | --- | --- | --- |
+| [`patterns/polling`](patterns/polling/) | A deterministic Python tick | Local files in the teaching example | The smallest restartable controller |
+| [LXA](https://github.com/jpshackelford/lxa) with [`pr-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/pr-workflow) | A scheduled OpenHands orchestrator reads GitHub and `WORKLOG.md`, dispatches workers, and auto-disables after quiet periods | GitHub plus a Git-backed worklog | Put LLM judgment in the controller when issues and reviews require interpretation |
+| [Vibe Manager](https://github.com/rbren/vibe-manager) | A one-minute deterministic watcher fingerprints Kanban and conversation state; it starts an LLM manager only when an actionable change needs judgment | SQLite Kanban state plus automation KV | Keep frequent observation cheap and invoke the model conditionally |
 
-Suppose one change should move through implementation, independent review, and
-QA in a single bounded run, but each role needs a different environment:
+These are variations of the same control pattern. They differ in where
+judgment lives, how often the controller wakes, and which system owns state.
+
+## 3. Parent-Child Conversations
+
+![A parent controller starting first-class conversations with explicit or configuration-driven sandbox placement](assets/start-enterprise-conversations.svg)
+
+A live parent owns one bounded request. It breaks the request into focused
+assignments, starts first-class worker conversations, observes their status,
+validates their output contracts, applies gates, and publishes a lifecycle
+report.
+
+**Use it when:** workers need separate histories, visible conversation links,
+clean execution environments, different credentials, or human checkpoints
+between stages—and one parent can remain active for the bounded lifecycle.
+
+**Typical composition:**
+
+- **Execution:** first-class conversations with configured placement, or
+  explicitly prepared and attached sandboxes
+- **Coordination:** one live parent starts workers, waits, and applies gates
+- **Workflow state:** parent run record, child IDs, and durable Git or ticket
+  artifacts
+
+### Example: implementation, review, and QA
 
 ```text
 request
   -> live parent
-     -> implementation child: writable checkout and branch-push credentials
+     -> implementation child: writable checkout and branch credentials
      -> code-review child: clean checkout and read-only PR access
      -> QA child: fresh test environment and test-only credentials
   -> lifecycle report
   -> human decides whether to merge
 ```
 
-The implementation child can install dependencies and modify its checkout
-without leaving residue for the reviewer. The review child evaluates the
-durable branch or PR from a clean environment rather than trusting the
-implementer's local files. The QA child can launch services, run browser or
-integration tests, and then discard its environment without exposing its test
-credentials to the other roles.
+Each worker receives one responsibility and a small result contract. The
+parent advances only when the contract and independent validation permit it.
+A blocking review, malformed output, missing final response, or timeout becomes
+`needs-human`; it is not silently inferred as success.
 
-The parent passes stable identifiers, the PR URL, and small output contracts
-between children; it does not treat one child's sandbox files as shared state.
-A failed or stuck child is contained to its sandbox, and the parent stops at
-the gate and reports what needs human attention. Isolated sandboxes consume
-more capacity, so trusted children should be grouped only when sharing a
-filesystem, credentials, and failure scope is acceptable.
+The workers should exchange code through durable branches or pull requests,
+not by assuming their local files are visible to one another.
 
-This repository's `run_supervisor.py` demonstrates first-class conversations
-and gates, but it does not prepare or attach a sandbox. Use
-`start_sandbox`, `poll_sandbox`, and
-`build_start_payload(sandbox_id=...)` from
-[`patterns/common/openhands_conversations.py`](patterns/common/openhands_conversations.py)
-when explicit placement is part of the workflow. The
-[Enterprise workflow-primitives experiment](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/enterprise-workflow-primitives)
-contains the live Enterprise 0.24.0 evidence and end-to-end probe.
-
-Inspect the workflow without creating conversations:
+Inspect the supervisor without creating conversations:
 
 ```bash
 cd patterns/parent-child
 python3 run_supervisor.py --dry-run
 ```
 
-Then use the [parent-child example](patterns/parent-child/) with OpenHands
-Cloud, Enterprise, or a self-hosted deployment.
+[`patterns/parent-child`](patterns/parent-child/) demonstrates the lifecycle
+and gates. By default, creating a first-class Enterprise conversation follows
+the deployment's configured placement. When explicit isolation is required,
+the controller must create a sandbox, wait for it to become ready, and attach
+the conversation to it. The common helpers for both modes live in
+[`patterns/common/openhands_conversations.py`](patterns/common/openhands_conversations.py).
 
-## When Each Starting Point Fits
+The
+[Enterprise workflow-primitives experiment](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/enterprise-workflow-primitives)
+contains live evidence for conversation startup, explicit placement, durable
+event recovery, metrics, and cleanup.
 
-| Starting point | Start here when | It may look like |
-| --- | --- | --- |
-| Software SDK orchestration | Developers want to encode custom control logic in an existing application or service. | Application code starts agents, handles handoffs, and applies domain-specific rules. |
-| Polling and automations | Work naturally begins from schedules or external events and does not need one live parent to own the entire lifecycle. | An event triggers the next automation directly, several automations form a chain, or a scheduled run invokes a reconciliation controller. |
-| Parent-child conversations | One bounded request benefits from a live, accountable coordinator and workers with separate histories or chosen runtime boundaries. | The parent starts first-class conversations, checks their contracts, and gates the next child; placement remains configured unless it explicitly attaches prepared sandboxes. |
+## Combining the Patterns
 
-These are control starting points, not fixed execution or storage bundles.
-Any of them can record progress in Git, Jira, another ticket system, automation
-KV, files, or an application database. Choose the state store based on
-durability, audit, concurrency, and recovery needs.
+The three starting points describe control boundaries, not mutually exclusive
+products. A continuing workflow often combines them:
 
-The approaches can also be combined. A scheduled automation can start an SDK
-controller, an event-driven chain can launch a parent-child lifecycle, and a
-first-class worker conversation can use SDK subagents internally.
+```text
+scheduled reconciliation tick
+  -> observes ticket KAN-42 is ready
+  -> starts one bounded parent-child lifecycle
+       -> implementation conversation
+       -> review conversation
+       -> QA conversation
+  -> exits
 
-## Three Parts of Multi-Agent Orchestration
+next tick
+  -> observes the durable lifecycle result
+  -> updates the ticket and admits new work
+```
 
-Every multi-agent workflow needs answers for three parts:
+Likewise, an implementation child can use two SDK subagents for research and
+test planning without exposing that internal delegation to the campaign-level
+controller.
 
-| Part | What it answers | Common choices |
-| --- | --- | --- |
-| Agent execution | Where do agents work, and which files, credentials, compute, and failures do they share? | SDK subagents, isolated conversations, grouped conversations, Agent Canvas |
-| Coordination | Who assigns tasks, checks results, and decides what happens next? | Live parent, polling controller, scheduled automation, event-triggered controller, persistent reconciler |
-| Workflow state | Where are tasks, attempts, results, and active work recorded so the workflow can continue? | Automation KV, Git, issues or tickets, application database |
-
-A conversation and a sandbox are different boundaries. A conversation owns
-history, identity, and an operator-visible record. A sandbox owns compute,
-filesystem, credentials, and a failure domain.
-
-Likewise, an automation starts a bounded run; it does not prescribe how the
-whole workflow is coordinated. Runs can hand off through events or invoke a
-controller. Either way, the workflow still needs task assignment, capacity
-limits, result validation, and durable progress.
-
-### Agent execution: choose the boundary
-
-Execution determines what agents share: conversation history, filesystem,
-credentials, compute, timeout, and failure scope.
-
-| Execution option | Boundary | Good when | Important limit |
-| --- | --- | --- | --- |
-| SDK subagents | Task-specific histories inside one parent conversation and runtime | A bounded task needs a few trusted specialists | Files, credentials, resources, timeout, and failures are shared |
-| Isolated Enterprise conversations | Each worker has a first-class conversation and sandbox | Workers cross trust, credential, tenant, or failure boundaries | Uses the most sandbox capacity; results must travel through durable artifacts or contracts |
-| Grouped Enterprise conversations | Conversation histories are separate; trusted workers share a sandbox | Auditability matters, but workers can safely share runtime capacity | Grouping is not security isolation; one owner must manage the shared sandbox lifecycle |
-| Agent Canvas | Conversations are separately visible; workspace and credential sharing depend on the backend | A trusted team wants local or Kubernetes-hosted workers and a visual conversation graph | Canvas provides execution and visibility, not campaign durability by itself |
-
-Use a conversation as the ownership, history, and audit boundary. Use a
-sandbox as the filesystem, credential, compute, and failure boundary. They are
-related, but they are not the same decision.
-
-**Code examples:**
-
-- SDK subagents and ACP-backed workers:
-  [`shared_workspace.py`](shared_workspace.py)
-- Isolated Enterprise conversations:
-  the explicit sandbox controls in
-  [`patterns/common/openhands_conversations.py`](patterns/common/openhands_conversations.py)
-  and the
-  [verified Enterprise probe](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/enterprise-workflow-primitives)
-- First-class Enterprise conversations with configuration-driven placement:
-  [parent-child supervisor](patterns/parent-child/run_supervisor.py)
-- Grouped Enterprise conversations:
-  [sandbox-grouping experiment](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/enterprise-sandbox-grouping)
-- Agent Canvas conversations:
-  [`patterns/common/canvas_conversations.py`](patterns/common/canvas_conversations.py)
-  and the
-  [Kubernetes controller example](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/agent-canvas-kubernetes/controller)
-
-### Coordination: choose who advances the work
-
-Coordination determines what observes the current state, assigns the next
-task, checks the result, and decides whether the workflow may continue.
-
-| Coordination option | How work advances | Good when |
-| --- | --- | --- |
-| Application controller or live parent | One owner remains active, starts workers, waits, and applies gates | One bounded request should finish while an accountable coordinator remains available |
-| Direct event handoffs | A completed stage changes Jira, GitHub, or another system of record, which triggers the next automation | Stages have natural external events and no central process needs to remain alive |
-| Scheduled or event-triggered reconciliation | A temporary controller observes durable state, takes a bounded action, checkpoints, and exits | Work spans runs, events can be delayed or duplicated, or periodic recovery is useful |
-| Persistent reconciler | A monitored service continuously observes work and capacity | A sustained queue needs low-latency admission, retries, and recovery |
-
-These patterns can coexist. An event can start a parent, a scheduled
-reconciliation run can repair a missed event handoff, and an application
-controller can use automations for external triggers.
-
-**Code examples:**
-
-- Live parent with gates:
-  [`patterns/parent-child/run_supervisor.py`](patterns/parent-child/run_supervisor.py)
-- Direct event handoffs:
-  [GitHub automation work cells](https://github.com/rajshah4/sdlc-automation-github-demo/tree/main/automations/github)
-  and their
-  [registration script](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/scripts/automations/register_github_automations.py)
-- Restartable reconciliation:
-  [`patterns/polling/orchestrate_once.py`](patterns/polling/orchestrate_once.py)
-  and the
-  [in-platform controller experiment](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/in-platform-controller)
-- Long-lived controller:
-  [bounded persistent supervisor experiment](https://github.com/rajshah4/openhands-agent-research-lab/blob/main/experiments/in-platform-controller/persistent_supervisor.py)
-
-### Workflow state: choose what survives
-
-Workflow state records ownership, attempts, worker IDs, artifacts, validation
-results, and the next permitted action. Conversation history can help one
-agent reason, but it should not be the only campaign record.
-
-| State option | Good when | Important limit |
-| --- | --- | --- |
-| Local files | One local controller owns a bounded demo | Files disappear with an ephemeral controller and do not provide concurrent claims |
-| OpenHands automation KV | One automation needs checkpoints across temporary runs | It is not a general multi-controller lease service |
-| Files plus Git | One serialized controller needs reviewable, restartable checkpoints | Git is not a transactional queue |
-| Jira, GitHub, or another ticket system | Work naturally advances through stories, comments, branches, pull requests, labels, or statuses | Poor fit for frequent leases and heartbeats |
-| Application database | Multiple controllers or tenants claim work concurrently | Adds schema, migration, backup, and operational responsibility |
-
-A workflow can use more than one. For example, Jira can own the request,
-GitHub can own the code and review artifacts, and automation KV can retain
-event-deduplication checkpoints and active conversation IDs.
-
-**Code examples:**
-
-- Local file-backed state:
-  [`patterns/polling/orchestrate_once.py`](patterns/polling/orchestrate_once.py)
-  and its [`backlog.json`](patterns/polling/backlog.json)
-- Jira and GitHub as systems of record:
-  [SDLC automation packages](https://github.com/rajshah4/sdlc-automation-github-demo/tree/main/automations)
-- Git-backed controller ledger:
-  [in-platform controller](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/in-platform-controller)
-- Persistent-volume state for one Kubernetes controller:
-  [Agent Canvas controller](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/agent-canvas-kubernetes/controller)
-- Transactional database or lease service:
-  [design guidance](BEST_PRACTICES.md#separate-single-controller-and-multi-controller-state);
-  this repository does not yet include a working multi-controller database
-  implementation
-
-### Compose the three choices
-
-For a more complex workflow, write the architecture down before implementing
-it:
+For a real design, write down the composition explicitly:
 
 ```text
 execution:
-coordination:
-workflow state:
+worker implementation:
+control:
+durable state:
 active-work limit:
 validation:
 cleanup owner:
 human gate:
 scale-out boundary:
+untested assumptions:
 ```
 
-For the Jira-to-PR example, one valid composition is isolated Enterprise
-conversations for build, review, and QA; direct Jira and GitHub event
-handoffs; Jira plus GitHub as the durable workflow record; automation KV for
-deduplication; independent review and QA contracts; and a human merge gate.
-That is one composition, not a required bundle.
+## Execution and Worker Choices
 
-See [Multi-Agent Best Practices](BEST_PRACTICES.md) for stable identifiers,
-attempt ledgers, idempotent dispatch, capacity, validation, recovery, cleanup,
-and production qualification.
-
-## Alternative Coding Agents and Harnesses
-
-A multi-agent coding team does not need to use the same agent harness for
-every role. One worker can implement with Claude Code, another can test with
-Gemini CLI, and an OpenHands agent can review the result. OpenHands coordinates
-the phases while each worker uses the coding agent best suited to its task.
+After choosing a control pattern, choose where conversations run and what kind
+of agent fills each worker role.
 
 ![An OpenHands controller assigning implementation, testing, and review to different coding harnesses](assets/multi-harness-coding-team.svg)
 
-This is an agent-execution choice. It is separate from the coordination and
-workflow-state choices described above.
+### Execution boundaries
 
-### Two ways to invoke an alternative coding agent
-
-| Integration | How it works | Use it when |
+| Boundary | Good when | Important limit |
 | --- | --- | --- |
-| Command line | An OpenHands worker launches the coding agent's headless CLI inside its workspace or sandbox, then the orchestrator validates the resulting files, commit, or structured response | The CLI is already available in the runtime, or the harness does not expose ACP |
-| ACP | OpenHands configures an ACP-backed agent and communicates with its server through the [Agent Client Protocol](https://agentclientprotocol.com/overview/introduction) | The coding agent supports ACP and should behave as a reusable conversation backend rather than a one-off command |
+| SDK subagents | A few trusted specialists can share one runtime | Files, credentials, resources, timeout, and failures are shared |
+| Isolated Enterprise conversations | Workers cross trust, credential, tenant, or failure boundaries | First-class conversation creation alone does not guarantee isolation |
+| Grouped Enterprise conversations | Separate histories matter, but trusted workers can share runtime capacity | Grouping is not security isolation; one owner must manage cleanup |
+| Agent Canvas conversations | A trusted team wants lightweight, separately visible workers | Workspace and credential sharing depend on the backend; Canvas is not campaign storage |
 
-The [OpenHands ACP guide](https://docs.openhands.dev/sdk/guides/agent-acp)
-shows both local `ACPAgent` usage and ACP agents running through remote agent
-servers. ACP is not specific to Agent Canvas: both OpenHands Enterprise and
-[Agent Canvas](https://github.com/OpenHands/agent-canvas) can run ACP-backed
-agents. Calling a harness through its CLI or through ACP changes how the worker
-is invoked; it does not decide when the worker runs, how its result is
-validated, or where workflow progress is stored.
+### Native agents, command-line harnesses, and ACP
 
-### Enterprise or Agent Canvas?
+A multi-agent team does not need to use the same coding harness for every
+role. OpenHands can coordinate native agents, coding-agent CLIs, and ACP-backed
+agents while keeping assignment, validation, and workflow state outside the
+individual worker.
 
-Agent Canvas does not need a separate multi-agent orchestration pattern. Use
-the same execution, coordination, and workflow-state framework for both
-platforms, then choose the operating environment that fits the team:
+| Worker | Use it when | Controller responsibility |
+| --- | --- | --- |
+| Native OpenHands agent | The worker needs OpenHands tools, skills, plugins, and model configuration | Select the appropriate tools, model, secrets, and result contract |
+| Coding-agent CLI | The harness is installed in the runtime or does not expose ACP | Capture lifecycle, authentication, artifacts, and output explicitly |
+| ACP-backed profile | Claude Code, Codex, Gemini CLI, or another ACP server should act as the conversation backend | Validate the result like any other worker; ACP does not choose the control pattern |
 
-| Platform | Choose it when |
+[`shared_workspace.py`](shared_workspace.py) shows ACP through the SDK in a
+shared workspace. [`cloud_conversations.py`](cloud_conversations.py) shows
+coding-agent CLIs launched inside managed conversations, with code transferred
+through Git.
+
+See [Agent Canvas and ACP](docs/agent-canvas-and-acp.md) for the platform and
+harness details.
+
+## Choosing Durable State
+
+Conversation history helps an agent reason, but it should not be the only
+campaign record. Durable state should retain ownership, attempts, worker IDs,
+artifacts, validation, and the next permitted action.
+
+| State | Good when | Important limit |
+| --- | --- | --- |
+| Local files | One local controller owns a bounded demo | Files disappear with an ephemeral controller and do not provide concurrent claims |
+| Automation KV | One custom automation needs checkpoints across temporary runs | It is not a general multi-controller lease service |
+| Files plus Git | One serialized controller needs reviewable, restartable checkpoints | Git is not a transactional queue |
+| GitHub, Jira, or another ticket system | Work naturally advances through issues, labels, branches, reviews, or tickets | Poor fit for frequent leases and heartbeats |
+| Application database | Multiple controllers or tenants claim work concurrently | Adds schema, migration, backup, and operational responsibility |
+
+A workflow can use more than one. Jira might own the request, GitHub the code
+and review artifacts, and automation KV the event-deduplication checkpoint and
+active conversation IDs.
+
+## Production Practices
+
+The examples are small, but the operating rules scale:
+
+- use stable workflow, task, attempt, conversation, sandbox, branch, and PR
+  identifiers
+- record attempts and failures instead of overwriting them
+- make dispatch idempotent and recover a crash during conversation creation
+- bound concurrency, startup, execution, response, and cleanup time
+- require explicit machine-readable worker contracts
+- validate artifacts independently of worker self-reports
+- preserve enough durable state for a later controller to resume
+- assign one cleanup owner for every sandbox or grouped work cell
+- treat untrusted issue, ticket, and webhook text as data, not privileged
+  instructions
+- keep merges, deployments, approvals, and other irreversible actions behind
+  human gates
+
+See [Multi-Agent Best Practices](BEST_PRACTICES.md) for the full guidance on
+state, capacity, validation, recovery, observability, security, and production
+qualification.
+
+## More Working Examples
+
+| Project | What it demonstrates |
 | --- | --- |
-| Agent Canvas | Developers want a self-hosted visual control center for local, remote, or cloud agent backends and want to inspect or operate conversations directly |
-| OpenHands Enterprise | An organization needs centrally managed conversations, integrations, access controls, auditability, and scalable sandbox execution |
+| [SDLC Automation Demo](https://github.com/rajshah4/sdlc-automation-github-demo) | GitHub-native event handoffs and parent-child build, review, and QA workflows |
+| [Agent Canvas SDLC Starter](https://github.com/rajshah4/agent-canvas-sdlc-starter) | A visual local supervisor that creates implementation, review, and QA conversations |
+| [OpenHands Agent Research Lab](https://github.com/rajshah4/openhands-agent-research-lab) | Bounded experiments, deterministic validation, durable attempts, and evidence-backed memory |
+| [LXA](https://github.com/jpshackelford/lxa) | Long-horizon SDK execution plus a GitHub-backed scheduled repository orchestrator |
+| [Vibe Manager](https://github.com/rbren/vibe-manager) | Conditional LLM reconciliation over a continuously polled Kanban and conversation system |
 
-The platform and harness choices are independent. An Enterprise or Agent
-Canvas worker can use the native OpenHands agent or an ACP-backed coding agent.
-The sandbox, credentials, and repository boundary still need to be selected
-for each worker. The parent-child and polling examples accept
-`--agent-profile-id` on both runtimes.
+## Reuse the Orchestration Skill
 
-### Working examples
-
-| Example | Integration shown | Coding team | Execution boundary |
-| --- | --- | --- | --- |
-| [`shared_workspace.py`](shared_workspace.py) | ACP through the OpenHands SDK | Claude Code implements, Gemini CLI tests, OpenHands reviews | All roles use one shared workspace |
-| [`cloud_conversations.py`](cloud_conversations.py) | Coding-agent CLIs launched inside managed conversations | Claude Code implements, Gemini CLI tests, OpenHands reviews | Each role uses a managed conversation and transfers code through Git |
-
-These examples demonstrate the two invocation methods, not a complete
-Enterprise-versus-Agent-Canvas matrix. This repository does not yet include
-equivalent end-to-end ACP multi-agent demos for both platforms.
-
-## Example Compositions
-
-These are example combinations, not required pairings. The first three rows
-have working implementations. The last two are useful design directions for
-workloads that exceed the simple examples.
-
-| Combination | Good when | Execution | Control | Workflow state | Implementation |
-| --- | --- | --- | --- | --- | --- |
-| Shared SDK subagent demo | One bounded task needs a few trusted specialists | One shared runtime | Live parent | Parent history and task IDs | [`shared_workspace.py`](shared_workspace.py) |
-| Polling controller demo | Work continues across temporary runs | Enterprise or Agent Canvas workers | Reconciliation run started by a schedule or event | Automation KV or Git | [`patterns/polling`](patterns/polling/) |
-| Enterprise parent-child demo | Workers need separate histories and visible records | First-class conversations; placement follows Enterprise configuration | Live parent | Run record, child IDs, and durable artifacts | [`patterns/parent-child`](patterns/parent-child/) |
-| Grouped Enterprise controller | Trusted workers need separate conversations but can share runtime capacity | Grouped conversations | Live or scheduled controller | Git, automation KV, tickets, or database | [Implementation guidance](BEST_PRACTICES.md#grouped-enterprise-conversations) |
-| Persistent controller with database leases | Several controllers or tenants must claim work concurrently | First-class worker conversations | Monitored reconciler replicas | Application database with atomic claims | [State guidance](BEST_PRACTICES.md#separate-single-controller-and-multi-controller-state) |
-
-The grouped Enterprise combination was validated in the
-[sandbox-grouping experiment](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/enterprise-sandbox-grouping).
-The database-leasing row is architecture guidance, not a completed example in
-this repository.
-
-## Best Practices
-
-The [multi-agent best practices](BEST_PRACTICES.md) document contains the
-operating guidance behind these examples:
-
-- stable workflow, task, and attempt identifiers
-- append-only attempt records
-- idempotent dispatch and duplicate prevention
-- bounded concurrency and queueing
-- independent result validation
-- controller recovery and durable artifacts
-- one clear owner for grouped sandbox cleanup
-- human gates for irreversible actions
-
-These practices came from the working repository examples and the larger
-NeuroGolf orchestration experiments rather than from the small demo tasks
-alone.
-
-## Reuse The Orchestration Skill
-
-This repository includes a shareable
+This repository includes the shareable
 [`orchestrate-multi-agent-conversations`](.agents/skills/orchestrate-multi-agent-conversations/)
-skill. It guides an agent through execution boundaries, native/CLI/ACP worker
-selection, coordination, durable state, contracts, recovery, capacity, and
-human gates.
+skill. It guides an agent through execution boundaries, worker selection,
+control patterns, durable state, result contracts, recovery, capacity,
+cleanup, and human gates.
 
-Keep the directory under `.agents/skills/` to use it in this repository. To
-reuse it elsewhere, copy the complete skill directory into that project's
-`.agents/skills/` directory, then ask the agent to use
-`$orchestrate-multi-agent-conversations` for the workflow. Keep its references
-and validator script with `SKILL.md`; they are part of the skill.
+Keep the complete skill directory—including its references and validator
+script—under `.agents/skills/` when reusing it in another repository. Then ask
+the agent to use `$orchestrate-multi-agent-conversations` for the workflow.
 
 ## Repository Map
 
 ```text
 patterns/
   common/          Enterprise and Agent Canvas conversation adapters
-  parent-child/    Live controller with bounded child conversations
-  polling/         Restartable reconciliation run and file-backed demo state
-shared_workspace.py        ACP coding team in one shared workspace
-cloud_conversations.py     Coding harnesses in managed conversations
-BEST_PRACTICES.md  Architecture, state, recovery, validation, and scaling
-.agents/skills/
-  orchestrate-multi-agent-conversations/  Shareable design and validation skill
-tests/
-```
+  parent-child/    Live supervisor with bounded child conversations
+  polling/         Restartable reconciliation loop
 
-The example tasks are intentionally small so the orchestration is easy to
-inspect. Replace their prompts and validators with your workload while keeping
-the controller, workflow state, capacity limits, output contracts, and human
-approval boundaries.
+shared_workspace.py     SDK subagents and ACP workers in a shared runtime
+cloud_conversations.py  Coding harnesses in managed conversations
+BEST_PRACTICES.md       State, recovery, validation, capacity, and cleanup
+docs/                   Deeper architecture and platform guidance
+.agents/skills/         Reusable orchestration guidance and validators
+tests/                  Offline tests for the example controllers
+```
 
 ## Go Deeper
 
-- [Multi-agent best practices](BEST_PRACTICES.md): architecture, workflow
-  state, identifiers, recovery, validation, capacity, and cleanup
-- [Parent-child example](patterns/parent-child/): a bounded live controller
-  with gated child conversations
-- [Polling example](patterns/polling/): a restartable single-controller
-  reconciliation tick
-- [OpenHands ACP guide](https://docs.openhands.dev/sdk/guides/agent-acp):
-  alternative coding agents locally or through remote agent servers
-- [Shareable orchestration skill](.agents/skills/orchestrate-multi-agent-conversations/):
-  architecture selection, worker contracts, recovery, and validation
+- [Choosing a Pattern](docs/choosing-a-pattern.md)
+- [Polling and reconciliation](patterns/polling/)
+- [Parent-child conversations](patterns/parent-child/)
+- [Multi-Agent Best Practices](BEST_PRACTICES.md)
+- [Agent Canvas and ACP](docs/agent-canvas-and-acp.md)
+- [OpenHands Software Agent SDK](https://docs.openhands.dev/sdk/)
+- [Reusable orchestration skill](.agents/skills/orchestrate-multi-agent-conversations/)

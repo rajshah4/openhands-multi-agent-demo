@@ -42,53 +42,43 @@ def test_guidance_local_links_exist() -> None:
 
 def test_getting_started_has_quick_start_and_deeper_guidance() -> None:
     text = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert text.index("## Three Starting Points") < text.index(
-        "## Three Parts of Multi-Agent Orchestration"
-    )
-    assert "## When Each Starting Point Fits" in text
-    assert "Software SDK orchestration" in text
-    assert "Polling and automations" in text
-    assert "Parent-child conversations" in text
-    assert "An event triggers the next automation directly" in text
-    assert "control starting points, not fixed execution or storage bundles" in text
-    assert "### Agent execution: choose the boundary" in text
-    assert "### Coordination: choose who advances the work" in text
-    assert "### Workflow state: choose what survives" in text
-    assert "### Compose the three choices" in text
-    assert "Application controller or live parent" in text
-    assert "Direct event handoffs" in text
+    sections = [
+        "## Start Here",
+        "## The Core Model",
+        "## 1. SDK Orchestration",
+        "## 2. Automations and Reconciliation",
+        "## 3. Parent-Child Conversations",
+        "## Combining the Patterns",
+        "## Execution and Worker Choices",
+        "## Choosing Durable State",
+        "## Production Practices",
+        "## Repository Map",
+    ]
+    offsets = [text.index(section) for section in sections]
+    assert offsets == sorted(offsets)
+    assert "python3 orchestrate_once.py --dry-run" in text
+    assert "python3 run_supervisor.py --dry-run" in text
+    assert "**Execution**" in text
+    assert "**Coordination**" in text
+    assert "**Workflow state**" in text
+    assert "conversation" in text and "sandbox" in text
+    assert "automation" in text and "durable state" in text
     assert "Application database" in text
-    assert text.count("**Code examples:**") >= 3
     assert "patterns/common/openhands_conversations.py" in text
-    assert "patterns/common/canvas_conversations.py" in text
-    assert "patterns/parent-child/run_supervisor.py" in text
-    assert "patterns/polling/orchestrate_once.py" in text
-    assert "sdlc-automation-github-demo/tree/main/automations/github" in text
-    assert "openhands-agent-research-lab/tree/main/experiments/in-platform-controller" in text
-    assert "does not yet include a working multi-controller database" in text
-    assert "## Example Compositions" in text
-    assert "example combinations, not required pairings" in text
-    assert "#### Example: Jira story to reviewed and tested PR" in text
-    assert "implementation agent opens a GitHub pull request" in text
-    assert "code-review agent posts an independent review" in text
-    assert "QA agent runs acceptance checks" in text
-    assert "human reviews and decides whether to merge" in text
-    assert "#### Example: explicitly isolated build, review, and QA" in text
-    assert "writable checkout and branch-push credentials" in text
+    assert "Jira story to reviewed PR" in text
+    assert "agent opens a GitHub pull request" in text
+    assert "independent review agent" in text
+    assert "human decides whether to merge" in text
+    assert "implementation, review, and QA" in text
+    assert "writable checkout and branch credentials" in text
     assert "clean checkout and read-only PR access" in text
     assert "fresh test environment and test-only credentials" in text
-    assert "does not prepare or attach a sandbox" in text
     assert "enterprise-workflow-primitives" in text
-    assert "## Alternative Coding Agents and Harnesses" in text
-    assert "### Two ways to invoke an alternative coding agent" in text
-    assert "### Enterprise or Agent Canvas?" in text
-    assert "Command line" in text
-    assert "ACP is not specific to Agent Canvas" in text
-    assert "not a complete" in text
-    assert "Enterprise-versus-Agent-Canvas matrix" in text
-    assert "--agent-profile-id" in text
-    assert "## Best Practices" in text
-    assert "## Repository Map" in text
+    assert "LXA" in text and "pr-workflow" in text
+    assert "Vibe Manager" in text
+    assert "deterministic watcher" in text
+    assert "Native agents, command-line harnesses, and ACP" in text
+    assert "human gates" in text
 
 
 def test_getting_started_visuals_exist() -> None:
