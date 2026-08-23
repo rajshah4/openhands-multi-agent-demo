@@ -1,0 +1,21 @@
+{
+  "preset": "prompt",
+  "name": "Multi-Agent Demo - Implement Approved Spec",
+  "prompt_file": "prompt.md",
+  "trigger": {
+    "type": "event",
+    "source": "github",
+    "on": ["issues.labeled"],
+    "filter": "repository.full_name == '${IMPLEMENT_SPEC_REPOSITORY}' && issue.pull_request == null && label.name == 'openhands-implement-spec'"
+  },
+  "repos": [
+    {
+      "url": "${IMPLEMENT_SPEC_REPO_URL}",
+      "provider": "github",
+      "ref": "${IMPLEMENT_SPEC_REF}"
+    }
+  ],
+  "timeout": 1800,
+  "keep_alive": true,
+  "model": "Bedrock-Claude-Sonnet-4-6"
+}

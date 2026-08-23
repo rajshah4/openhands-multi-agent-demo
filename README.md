@@ -180,6 +180,24 @@ The decision-maker can be deterministic code, an LLM, or a hybrid of both:
 These are variations of the same control pattern. They differ in where
 judgment lives, how often the controller wakes, and which system owns state.
 
+### Worked composition: event-triggered spec implementation
+
+Matt Pocock's public
+[`implement-spec`](https://github.com/mattpocock/skills/tree/main/skills/in-progress/implement-spec)
+skill is a concrete example of multiagent implementation in Agent Canvas.
+Given a specification and dependency-linked tickets, it delegates the ready
+frontier to implementer subagents, isolates their work in branches and
+worktrees, merges in dependency order, reviews the result, and prepares one
+pull request for human approval. We tested the unchanged skill successfully
+with Agent Canvas; upstream currently classifies it as beta.
+
+This repo pairs it with a runnable
+[`issues.labeled` automation](automations/implement-approved-spec/): adding
+`openhands-implement-spec` starts a parent conversation, loads the repo-local
+skill, and stops at a validated PR for human review. It combines an event
+trigger with subagent delegation inside one conversation; it is not a fourth
+orchestration pattern.
+
 ## 3. Parent-Child Conversations
 
 ![A parent controller starting first-class conversations with explicit or configuration-driven sandbox placement](assets/start-enterprise-conversations.svg)
@@ -384,6 +402,9 @@ patterns/
   common/          Enterprise and Agent Canvas conversation adapters
   parent-child/    Live supervisor with bounded child conversations
   polling/         Restartable reconciliation loop
+
+automations/
+  implement-approved-spec/  GitHub label -> implement-spec -> human review
 
 shared_workspace.py     SDK subagents and ACP workers in a shared runtime
 cloud_conversations.py  Coding harnesses in managed conversations
