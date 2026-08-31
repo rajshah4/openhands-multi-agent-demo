@@ -88,7 +88,7 @@ python3 patterns/polling/orchestrate_once.py --runtime canvas
 python3 patterns/parent-child/run_supervisor.py --runtime canvas
 ```
 
-Canvas reads its API key from `~/.openhands/agent-canvas/api-key.txt`.
+Canvas reads its API key from `AGENT_CANVAS_API_KEY` (env var) or `~/.openhands/agent-canvas/session-api-key.txt` (auto-saved when local Canvas starts), falling back to `api-key.txt` in the same directory.
 
 ## 7. Run the Tests
 

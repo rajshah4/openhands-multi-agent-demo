@@ -1,7 +1,7 @@
 {
-  "last_update": "2026-08-26",
+  "last_update": "2026-08-31",
   "source_commit": "da7419431c68eab0bd0be494bc920599b7cb0da7",
-  "docs_version": "1.0.0",
+  "docs_version": "1.0.1",
   "pages": [
     "index.md",
     "quickstart.md",

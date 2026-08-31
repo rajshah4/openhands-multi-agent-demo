@@ -97,7 +97,6 @@ from openhands.sdk.agent import ACPAgent
 
 worker = ACPAgent(
     acp_command=["npx", "-y", "@agentclientprotocol/claude-agent-acp"],
-    acp_env={"ANTHROPIC_API_KEY": "..."},
 )
 ```
 
