@@ -55,5 +55,5 @@ Both pattern scripts accept `--runtime canvas` to run on local Agent Canvas inst
 ## Autodocs
 
 - **Wiki:** [`openwiki/`](openwiki/)
-- **Last updated:** 2026-08-26 (source commit `da74194`)
+- **Last updated:** 2026-08-31 (source commit `da74194`)
 - **Maintained by:** [Autodocs](https://github.com/OpenHands/extensions) — edit `openwiki/` pages directly; update `.last-update.json` when source changes are documented.
