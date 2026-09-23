@@ -30,7 +30,16 @@ def local_markdown_targets(path: Path) -> list[Path]:
 
 
 def test_guidance_local_links_exist() -> None:
-    guides = [ROOT / "README.md", ROOT / "BEST_PRACTICES.md"]
+    guides = [
+        ROOT / "README.md",
+        ROOT / "BEST_PRACTICES.md",
+        ROOT / "PATTERNS.md",
+        ROOT / "docs" / "choosing-a-pattern.md",
+        ROOT / "docs" / "agent-canvas-and-acp.md",
+        ROOT / "patterns" / "parent-child" / "README.md",
+        ROOT / "patterns" / "polling" / "README.md",
+        ROOT / "automations" / "implement-approved-spec" / "README.md",
+    ]
     missing = [
         target
         for guide in guides
@@ -45,10 +54,10 @@ def test_getting_started_has_quick_start_and_deeper_guidance() -> None:
     sections = [
         "## Start Here",
         "## The Core Model",
-        "## 1. SDK Orchestration",
-        "## 2. Automations and Reconciliation",
-        "## 3. Parent-Child Conversations",
-        "## Combining the Patterns",
+        "## 1. Bounded In-Conversation Delegation",
+        "## 2. Bounded Supervised Lifecycle",
+        "## 3. Durable Asynchronous Workflow",
+        "## Combining the Approaches",
         "## Execution and Worker Choices",
         "## Choosing Durable State",
         "## Production Practices",
@@ -63,9 +72,9 @@ def test_getting_started_has_quick_start_and_deeper_guidance() -> None:
     assert "**Workflow state**" in text
     assert "conversation" in text and "sandbox" in text
     assert "automation" in text and "durable state" in text
-    assert "Application database" in text
+    assert "application database" in text.lower()
     assert "patterns/common/openhands_conversations.py" in text
-    assert "Jira story to reviewed PR" in text
+    assert "### 3B. Event Handoff" in text
     assert "agent opens a GitHub pull request" in text
     assert "independent review agent" in text
     assert "human decides whether to merge" in text
@@ -84,13 +93,38 @@ def test_getting_started_has_quick_start_and_deeper_guidance() -> None:
 def test_getting_started_visuals_exist() -> None:
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     visuals = [
+        ROOT / "assets" / "three-approaches.svg",
         ROOT / "assets" / "start-sdk-subagents.svg",
         ROOT / "assets" / "start-automation-controller.svg",
         ROOT / "assets" / "start-enterprise-conversations.svg",
+        ROOT / "assets" / "pattern-event-driven.svg",
+        ROOT / "assets" / "composable-layers.svg",
         ROOT / "assets" / "multi-harness-coding-team.svg",
     ]
     assert all(path.exists() for path in visuals)
     assert all(path.name in text for path in visuals)
+
+
+def test_canonical_approaches_are_consistent() -> None:
+    sources = [
+        ROOT / "README.md",
+        ROOT / "BEST_PRACTICES.md",
+        ROOT / "docs" / "choosing-a-pattern.md",
+        SKILL / "SKILL.md",
+        SKILL / "references" / "architecture-patterns.md",
+    ]
+    names = [
+        "Bounded in-conversation delegation",
+        "Bounded supervised lifecycle",
+        "Durable asynchronous workflow",
+    ]
+    for source in sources:
+        text = source.read_text(encoding="utf-8").lower()
+        assert all(name.lower() in text for name in names), source
+    chooser = (ROOT / "docs" / "choosing-a-pattern.md").read_text(encoding="utf-8")
+    assert "choose-an-approach.svg" in chooser
+    assert (ROOT / "assets" / "choose-an-approach.svg").exists()
+
 
 
 def test_best_practices_has_neurogolf_operating_lessons() -> None:

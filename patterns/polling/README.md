@@ -1,7 +1,7 @@
-# Pattern 2: Polling Loop
+# Approach 3A: Durable Reconciliation (Polling Loop)
 
-A stateless orchestrator wakes on a schedule, takes at most one action, and
-exits. The work outlives the orchestrator - **durable state is the memory**.
+A stateless controller wakes on a schedule, takes at most one action, and exits.
+The work outlives the controller—**durable state is the memory**.
 
 ```text
 wake -> read state -> decide -> (spawn | record | quiet) -> log -> exit

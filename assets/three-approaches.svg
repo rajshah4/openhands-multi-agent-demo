@@ -1,0 +1,180 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Three approaches to multi-agent orchestration</title>
+  <desc id="desc">A comparison of bounded in-conversation delegation, bounded supervised lifecycles, and durable asynchronous workflows.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#08101f"/>
+      <stop offset="1" stop-color="#111a30"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="0" cy="0" r="1" gradientTransform="translate(185 145) rotate(35) scale(460 330)">
+      <stop offset="0" stop-color="#5b8def" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#5b8def" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0" cy="0" r="1" gradientTransform="translate(1430 700) rotate(210) scale(480 340)">
+      <stop offset="0" stop-color="#50d3c2" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#50d3c2" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000814" flood-opacity=".38"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M1 1l7 4-7 4" fill="none" stroke="#76a1ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrowGold" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M1 1l7 4-7 4" fill="none" stroke="#f2c14e" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .display{font-family:"Avenir Next","Segoe UI",sans-serif;font-weight:700;letter-spacing:-1.2px}
+      .body{font-family:"Avenir Next","Segoe UI",sans-serif}
+      .label{font-family:"Avenir Next","Segoe UI",sans-serif;font-size:13px;font-weight:700;letter-spacing:1.7px}
+      .muted{fill:#98a6bc}
+      .ink{fill:#f7f2e8}
+      .line{stroke:#293652;stroke-width:1.4}
+      .node{fill:#121d34;stroke:#34435f;stroke-width:1.4}
+    </style>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <rect width="1600" height="900" fill="url(#glow1)"/>
+  <rect width="1600" height="900" fill="url(#glow2)"/>
+  <path d="M0 758C287 679 421 830 728 747c318-85 531 57 872-50v203H0Z" fill="#0b1427" opacity=".72"/>
+
+  <g class="body">
+    <text x="76" y="72" class="label" fill="#76a1ff">OPENHANDS · MULTI-AGENT FIELD GUIDE</text>
+    <text x="76" y="127" class="display ink" font-size="43">Three ways to coordinate agents</text>
+    <text x="76" y="164" class="body muted" font-size="18">Choose by who owns progress—and how long that owner must survive.</text>
+    <g transform="translate(1278 68)">
+      <rect width="246" height="50" rx="25" fill="#121d34" stroke="#334460"/>
+      <circle cx="29" cy="25" r="7" fill="#50d3c2"/>
+      <text x="48" y="31" fill="#d6deeb" font-size="14">Composable, not exclusive</text>
+    </g>
+  </g>
+
+  <!-- Card 1 -->
+  <g transform="translate(76 214)" filter="url(#shadow)">
+    <rect width="448" height="604" rx="28" fill="#101a2f" stroke="#31435f"/>
+    <path d="M28 0h128v5H28a28 28 0 0 0-28 28V28A28 28 0 0 1 28 0Z" fill="#76a1ff"/>
+    <g class="body">
+      <rect x="30" y="34" width="40" height="28" rx="14" fill="#1c3765"/>
+      <text x="50" y="53" text-anchor="middle" fill="#a9c3ff" font-size="13" font-weight="700">01</text>
+      <text x="30" y="99" class="display ink" font-size="22">Bounded in-conversation delegation</text>
+      <text x="30" y="128" class="muted" font-size="15">Inside one parent run</text>
+
+      <rect x="30" y="166" width="388" height="270" rx="20" fill="#0b1427" stroke="#263754"/>
+      <text x="50" y="195" class="label" fill="#76a1ff">ONE CONVERSATION BOUNDARY</text>
+      <rect x="118" y="220" width="212" height="66" rx="15" fill="#172847" stroke="#76a1ff" stroke-width="1.7"/>
+      <circle cx="145" cy="253" r="9" fill="#76a1ff"/>
+      <text x="165" y="250" class="ink" font-size="15" font-weight="700">Parent agent</text>
+      <text x="165" y="269" class="muted" font-size="12">delegates and waits</text>
+
+      <path d="M154 287v39M224 287v39M294 287v39" fill="none" stroke="#76a1ff" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+      <g>
+        <rect x="54" y="335" width="112" height="61" rx="12" class="node"/>
+        <rect x="168" y="335" width="112" height="61" rx="12" class="node"/>
+        <rect x="282" y="335" width="112" height="61" rx="12" class="node"/>
+        <text x="110" y="361" text-anchor="middle" class="ink" font-size="13" font-weight="700">Research</text>
+        <text x="110" y="379" text-anchor="middle" class="muted" font-size="11">subagent</text>
+        <text x="224" y="361" text-anchor="middle" class="ink" font-size="13" font-weight="700">Build</text>
+        <text x="224" y="379" text-anchor="middle" class="muted" font-size="11">subagent</text>
+        <text x="338" y="361" text-anchor="middle" class="ink" font-size="13" font-weight="700">Review</text>
+        <text x="338" y="379" text-anchor="middle" class="muted" font-size="11">subagent</text>
+      </g>
+      <text x="224" y="419" text-anchor="middle" class="muted" font-size="11.5">files may be shared or worktree-isolated</text>
+
+      <text x="30" y="478" class="label" fill="#a9c3ff">USE WHEN</text>
+      <text x="30" y="508" class="ink" font-size="15">A few specialist tasks fit inside</text>
+      <text x="30" y="530" class="ink" font-size="15">one bounded request.</text>
+      <line x1="30" y1="558" x2="418" y2="558" class="line"/>
+      <circle cx="39" cy="582" r="5" fill="#76a1ff"/>
+      <text x="54" y="587" class="muted" font-size="13">TaskToolSet · registered subagents</text>
+    </g>
+  </g>
+
+  <!-- Card 2 -->
+  <g transform="translate(576 214)" filter="url(#shadow)">
+    <rect width="448" height="604" rx="28" fill="#101a2f" stroke="#31435f"/>
+    <path d="M28 0h128v5H28a28 28 0 0 0-28 28V28A28 28 0 0 1 28 0Z" fill="#50d3c2"/>
+    <g class="body">
+      <rect x="30" y="34" width="40" height="28" rx="14" fill="#16433f"/>
+      <text x="50" y="53" text-anchor="middle" fill="#8ce5da" font-size="13" font-weight="700">02</text>
+      <text x="30" y="99" class="display ink" font-size="22">Bounded supervised lifecycle</text>
+      <text x="30" y="128" class="muted" font-size="15">One live supervisor, visible children</text>
+
+      <rect x="30" y="166" width="388" height="270" rx="20" fill="#0b1427" stroke="#263754"/>
+      <text x="50" y="195" class="label" fill="#50d3c2">FIRST-CLASS CONVERSATIONS</text>
+      <rect x="101" y="216" width="246" height="58" rx="15" fill="#163633" stroke="#50d3c2" stroke-width="1.7"/>
+      <text x="224" y="241" text-anchor="middle" class="ink" font-size="15" font-weight="700">Live supervisor</text>
+      <text x="224" y="260" text-anchor="middle" class="muted" font-size="12">starts · observes · gates</text>
+      <path d="M224 275v36" stroke="#50d3c2" stroke-width="1.5" marker-end="url(#arrowBlue)"/>
+      <path d="M224 309H86v25M224 309h138v25" fill="none" stroke="#50d3c2" stroke-width="1.5"/>
+      <g>
+        <rect x="46" y="333" width="116" height="67" rx="12" class="node"/>
+        <rect x="166" y="333" width="116" height="67" rx="12" class="node"/>
+        <rect x="286" y="333" width="116" height="67" rx="12" class="node"/>
+        <circle cx="62" cy="350" r="4" fill="#50d3c2"/>
+        <circle cx="182" cy="350" r="4" fill="#50d3c2"/>
+        <circle cx="302" cy="350" r="4" fill="#50d3c2"/>
+        <text x="104" y="369" text-anchor="middle" class="ink" font-size="13" font-weight="700">Implement</text>
+        <text x="104" y="387" text-anchor="middle" class="muted" font-size="10.5">conversation</text>
+        <text x="224" y="369" text-anchor="middle" class="ink" font-size="13" font-weight="700">Review</text>
+        <text x="224" y="387" text-anchor="middle" class="muted" font-size="10.5">conversation</text>
+        <text x="344" y="369" text-anchor="middle" class="ink" font-size="13" font-weight="700">QA</text>
+        <text x="344" y="387" text-anchor="middle" class="muted" font-size="10.5">conversation</text>
+      </g>
+      <text x="224" y="419" text-anchor="middle" class="muted" font-size="11.5">separate histories; placement is configurable</text>
+
+      <text x="30" y="478" class="label" fill="#8ce5da">USE WHEN</text>
+      <text x="30" y="508" class="ink" font-size="15">One request needs auditability,</text>
+      <text x="30" y="530" class="ink" font-size="15">independent gates, or worker identity.</text>
+      <line x1="30" y1="558" x2="418" y2="558" class="line"/>
+      <circle cx="39" cy="582" r="5" fill="#50d3c2"/>
+      <text x="54" y="587" class="muted" font-size="13">Parent-child · Canvas · Enterprise</text>
+    </g>
+  </g>
+
+  <!-- Card 3 -->
+  <g transform="translate(1076 214)" filter="url(#shadow)">
+    <rect width="448" height="604" rx="28" fill="#101a2f" stroke="#31435f"/>
+    <path d="M28 0h128v5H28a28 28 0 0 0-28 28V28A28 28 0 0 1 28 0Z" fill="#f2c14e"/>
+    <g class="body">
+      <rect x="30" y="34" width="40" height="28" rx="14" fill="#54431a"/>
+      <text x="50" y="53" text-anchor="middle" fill="#ffe19a" font-size="13" font-weight="700">03</text>
+      <text x="30" y="99" class="display ink" font-size="22">Durable asynchronous workflow</text>
+      <text x="30" y="128" class="muted" font-size="15">State outlives every controller run</text>
+
+      <rect x="30" y="166" width="388" height="270" rx="20" fill="#0b1427" stroke="#263754"/>
+      <text x="50" y="195" class="label" fill="#f2c14e">RECONCILE OR HAND OFF</text>
+      <g transform="translate(51 218)">
+        <rect width="102" height="58" rx="13" fill="#332d1d" stroke="#f2c14e"/>
+        <text x="51" y="25" text-anchor="middle" class="ink" font-size="13" font-weight="700">Tick / event</text>
+        <text x="51" y="43" text-anchor="middle" class="muted" font-size="11">wake</text>
+        <path d="M106 29h47" stroke="#f2c14e" stroke-width="1.5" marker-end="url(#arrowGold)"/>
+        <rect x="160" width="126" height="58" rx="13" fill="#332d1d" stroke="#f2c14e"/>
+        <text x="223" y="25" text-anchor="middle" class="ink" font-size="13" font-weight="700">Controller</text>
+        <text x="223" y="43" text-anchor="middle" class="muted" font-size="11">one action · exit</text>
+      </g>
+      <path d="M274 276v34" stroke="#f2c14e" stroke-width="1.5" marker-end="url(#arrowGold)"/>
+      <rect x="78" y="317" width="154" height="68" rx="13" class="node"/>
+      <rect x="252" y="317" width="140" height="68" rx="13" class="node"/>
+      <text x="155" y="343" text-anchor="middle" class="ink" font-size="13" font-weight="700">Durable state</text>
+      <text x="155" y="362" text-anchor="middle" class="muted" font-size="10.5">Git · tickets · KV · DB</text>
+      <text x="322" y="343" text-anchor="middle" class="ink" font-size="13" font-weight="700">Workers</text>
+      <text x="322" y="362" text-anchor="middle" class="muted" font-size="10.5">first-class conversations</text>
+      <path d="M252 352h-16" stroke="#f2c14e" stroke-width="1.3" marker-end="url(#arrowGold)"/>
+      <path d="M155 317v-17H51v-17" fill="none" stroke="#7d6a37" stroke-width="1.2" stroke-dasharray="4 5"/>
+      <text x="224" y="419" text-anchor="middle" class="muted" font-size="11.5">the next run resumes from external truth</text>
+
+      <text x="30" y="478" class="label" fill="#ffe19a">USE WHEN</text>
+      <text x="30" y="508" class="ink" font-size="15">Work spans hours or days, waits</text>
+      <text x="30" y="530" class="ink" font-size="15">on CI, systems, or people.</text>
+      <line x1="30" y1="558" x2="418" y2="558" class="line"/>
+      <circle cx="39" cy="582" r="5" fill="#f2c14e"/>
+      <text x="54" y="587" class="muted" font-size="13">Polling · event chains · campaigns</text>
+    </g>
+  </g>
+
+  <g class="body">
+    <text x="76" y="865" class="muted" font-size="13">THE KEY SEAM</text>
+    <text x="194" y="865" fill="#d7deea" font-size="13">conversation identity is separate from runtime placement—and both are separate from durable workflow state.</text>
+  </g>
+</svg>

@@ -1,4 +1,4 @@
-"""Offline contract tests for the two patterns. No API key or network needed.
+"""Offline contract tests for the two runnable controllers. No network needed.
 
 Run: python3 -m pytest -q
 """

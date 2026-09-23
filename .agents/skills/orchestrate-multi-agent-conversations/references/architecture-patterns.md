@@ -2,21 +2,35 @@
 
 ## Contents
 
+- Choose an ownership approach
 - Separate the decisions
 - Choose an execution boundary
 - Choose a worker implementation
-- Choose a control pattern
+- Choose a control mechanism
 - Choose durable state
 - Compose the system
 - Use tested examples
 - Qualify the recommendation
+
+## Choose An Ownership Approach
+
+| Approach | Owner | Use when |
+| --- | --- | --- |
+| **1. Bounded in-conversation delegation** | One parent run delegates to subagents and waits | A bounded request needs specialist help inside one conversation |
+| **2. Bounded supervised lifecycle** | One live supervisor manages first-class child conversations | One request needs visible workers, separate histories, or gates |
+| **3. Durable asynchronous workflow** | External state plus temporary reconcilers or event handoffs | Progress spans controller runs, systems, CI, or human decisions |
+
+A durable workflow can start a supervised lifecycle, and a supervised worker
+can use bounded subagents. The approach names the ownership horizon; it does not
+choose placement, harness, trigger, or storage technology.
+
 
 ## Separate The Decisions
 
 Make four independent choices:
 
 ```text
-control pattern
+ownership approach and control mechanism
   -> common controller contract
   -> execution adapter
   -> worker implementation

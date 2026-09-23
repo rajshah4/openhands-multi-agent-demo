@@ -1,10 +1,10 @@
 # Agent Canvas and ACP
 
-The two patterns in this repo are deliberately harness-agnostic: an
-orchestrator needs exactly two things from a worker - *start it with a
-self-contained prompt* and *learn its outcome*. Anything with those two
-properties can fill a worker slot. This page covers the two pieces that make
-that concrete: **Agent Canvas** (where the patterns become visible) and **ACP**
+The runnable first-class-conversation controllers in this repo are deliberately
+harness-agnostic: an orchestrator needs exactly two things from a worker—*start
+it with a self-contained prompt* and *learn its outcome*. Anything with those
+two properties can fill a worker slot. This page covers the two pieces that make
+that concrete: **Agent Canvas** (where delegation becomes visible) and **ACP**
 (how non-OpenHands harnesses plug in).
 
 ## Agent Canvas: The Visible Runtime
@@ -14,7 +14,7 @@ Every conversation is a node you can open, and a parent delegating children
 stops being an abstract diagram - you watch the supervisor spawn its
 plan/build/check children as separate live conversations.
 
-Both pattern scripts run on Canvas with a flag - no code changes:
+Both controller examples run on Canvas with a flag—no code changes:
 
 ```bash
 # local Agent Canvas running at localhost:8000
@@ -29,10 +29,10 @@ is the grown-up version: a parent Canvas conversation runs the orchestrator
 itself, and story-to-pr / code-review / qa children appear as delegated
 conversations.
 
-## Two Runtimes, Two APIs, One Pattern
+## Two Runtimes, Two APIs, One Controller Contract
 
 The `--runtime` flag exists because Canvas and Cloud/Enterprise expose
-genuinely different APIs. The pattern scripts never notice - both backends in
+genuinely different APIs. The controller scripts never notice—both backends in
 `patterns/common/` expose the same
 `build_start_payload / start_worker / get_status / get_final` surface:
 
@@ -42,15 +42,16 @@ genuinely different APIs. The pattern scripts never notice - both backends in
 | Auth | `Authorization: Bearer <api key>` | `X-Session-API-Key` from `~/.openhands/agent-canvas/api-key.txt` |
 | Settings | Held server-side in the secret store | Client round-trips encrypted settings (`X-Expose-Secrets: encrypted` + `secrets_encrypted: true`) |
 | Final response | Reconstructed from the events search | Dedicated `GET .../agent_final_response` endpoint |
-| Worker state | Isolated sandbox per conversation | Shared local working tree (`worktree: false`) |
+| Worker state | Placement follows instance configuration; explicit sandbox attachment is available | Shared local working tree (`worktree: false`) in these examples |
 
-The last row is the one that changes behavior, not just plumbing: on Canvas,
-workers run on your machine. This demo points them at a shared scratch
-directory (inside the gitignored run/results area), so files transfer
-directly between cells but runs are not parallel-safe. When a Canvas
-conversation attaches a git repository, it can instead use a separate git
-worktree per conversation for isolation.
-See [the state question](choosing-a-pattern.md#the-state-question-where-worker-output-goes).
+The last row changes behavior, not just plumbing. On Canvas, workers run on the
+selected local backend. This demo points them at a shared scratch directory
+(inside the gitignored run/results area), so files transfer directly between
+cells but runs are not parallel-safe. A Canvas conversation can instead use a
+separate Git worktree for file isolation. On Enterprise, first-class
+conversation creation does not guarantee a dedicated sandbox; use explicit
+sandbox attachment when isolation is required.
+See [placement choices](choosing-a-pattern.md#choose-placement-separately).
 
 ## ACP: Any Harness in the Worker Slot
 
@@ -84,7 +85,7 @@ have to be an OpenHands-native agent. The composition becomes visual - a
 supervisor node delegating to a Claude Code node and a Gemini node, each
 inspectable on the canvas.
 
-## What This Means for the Patterns
+## What This Means for the Approaches
 
 The orchestrator's contract never mentions a harness:
 
@@ -100,6 +101,6 @@ So the harness decision collapses to a per-worker-slot choice:
 | Local Canvas conversation | `patterns/common/canvas_conversations.py` (`--runtime canvas`) | Demos and development where seeing the graph matters |
 | ACP harness (Claude Code, Gemini CLI, ...) | `ACPAgent` via the SDK | A specific harness is best-in-class for one cell, or the team already lives in it |
 
-Swap one worker without touching the pattern. That is the actual value of
+Swap one worker without changing the orchestration approach. That is the value of
 harness flexibility - not that you *must* mix vendors, but that the workflow
 shape survives when you do.
