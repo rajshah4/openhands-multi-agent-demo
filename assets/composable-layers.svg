@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 840" role="img" aria-labelledby="composable-layers-title composable-layers-desc">
+  <title id="composable-layers-title">Composable multi-agent orchestration layers</title>
+  <desc id="composable-layers-desc">A durable workflow starts a supervised lifecycle, whose child conversations can use bounded subagents.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111728"/>
+      <stop offset=".55" stop-color="#171d31"/>
+      <stop offset="1" stop-color="#0b1323"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="14" stdDeviation="19" flood-color="#050812" flood-opacity=".48"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M1 1l7 4-7 4" fill="none" stroke="#d8e1ef" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .display{font-family:Georgia,"Times New Roman",serif;font-weight:700;letter-spacing:-1px}
+      .body{font-family:"Avenir Next","Segoe UI",sans-serif}
+      .eyebrow{font-family:"Avenir Next","Segoe UI",sans-serif;font-size:12px;font-weight:800;letter-spacing:1.7px}
+      .ink{fill:#f7f2e8}.muted{fill:#9da9bb}
+    </style>
+  </defs>
+  <rect width="1200" height="840" fill="url(#bg)"/>
+  <circle cx="1370" cy="90" r="270" fill="#5b8def" opacity=".07"/>
+  <circle cx="100" cy="850" r="330" fill="#f2c14e" opacity=".05"/>
+
+  <g class="body">
+    <text x="70" y="70" class="eyebrow" fill="#8fb0f6">THE COMPOSITION, NOT A COMPETITION</text>
+    <text x="70" y="126" class="display ink" font-size="44">How the three approaches compose</text>
+    <text x="70" y="164" class="muted" font-size="18">A durable workflow can start a supervised request; a worker can delegate smaller tasks.</text>
+  </g>
+
+  <!-- Outer durable workflow -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="214" width="1100" height="604" rx="34" fill="#191b2b" stroke="#f2c14e" stroke-width="2"/>
+    <rect x="96" y="240" width="196" height="32" rx="16" fill="#4a3c16"/>
+    <text x="194" y="261" text-anchor="middle" class="body" fill="#ffe29b" font-size="12" font-weight="800" letter-spacing="1.2">03 · DURABLE WORKFLOW</text>
+    <text x="96" y="312" class="display ink" font-size="28">Campaign horizon</text>
+    <text x="96" y="339" class="body muted" font-size="14">tickets · events · retries · active-work limits · human gates</text>
+
+    <rect x="98" y="374" width="190" height="85" rx="18" fill="#292819" stroke="#7a6624"/>
+    <text x="193" y="407" text-anchor="middle" class="body ink" font-size="15" font-weight="800">Tick or event</text>
+    <text x="193" y="433" text-anchor="middle" class="body muted" font-size="12">observe · decide · exit</text>
+
+    <rect x="98" y="660" width="190" height="91" rx="18" fill="#292819" stroke="#7a6624"/>
+    <text x="193" y="695" text-anchor="middle" class="body ink" font-size="15" font-weight="800">Durable truth</text>
+    <text x="193" y="720" text-anchor="middle" class="body muted" font-size="12">Git · issue · KV · database</text>
+    <path d="M193 459v194" stroke="#f2c14e" stroke-width="1.6" stroke-dasharray="5 6" marker-end="url(#arrow)"/>
+
+    <!-- Middle supervised lifecycle -->
+    <rect x="342" y="374" width="774" height="377" rx="28" fill="#13292d" stroke="#50d3c2" stroke-width="2"/>
+    <rect x="368" y="399" width="242" height="32" rx="16" fill="#15453f"/>
+    <text x="489" y="420" text-anchor="middle" class="body" fill="#92e8de" font-size="12" font-weight="800" letter-spacing="1.1">02 · SUPERVISED LIFECYCLE</text>
+    <text x="368" y="471" class="display ink" font-size="26">Request horizon</text>
+    <text x="368" y="498" class="body muted" font-size="13.5">one live parent · visible conversations · explicit gates</text>
+
+    <rect x="368" y="528" width="200" height="71" rx="16" fill="#19383a" stroke="#3f8e86"/>
+    <circle cx="395" cy="563" r="8" fill="#50d3c2"/>
+    <text x="415" y="558" class="body ink" font-size="14" font-weight="800">Supervisor</text>
+    <text x="415" y="578" class="body muted" font-size="11.5">owns lifecycle report</text>
+    <path d="M568 563h79" stroke="#50d3c2" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+    <!-- Inner delegation -->
+    <rect x="655" y="508" width="429" height="204" rx="24" fill="#162641" stroke="#76a1ff" stroke-width="2"/>
+    <rect x="679" y="531" width="228" height="30" rx="15" fill="#1c3765"/>
+    <text x="793" y="551" text-anchor="middle" class="body" fill="#b0c8ff" font-size="11" font-weight="800" letter-spacing="1">01 · BOUNDED DELEGATION</text>
+    <text x="679" y="592" class="display ink" font-size="22">Task horizon</text>
+    <text x="679" y="617" class="body muted" font-size="12.5">specialist help inside one worker</text>
+    <g>
+      <rect x="679" y="643" width="112" height="44" rx="12" fill="#1b3155"/>
+      <rect x="803" y="643" width="112" height="44" rx="12" fill="#1b3155"/>
+      <rect x="927" y="643" width="132" height="44" rx="12" fill="#1b3155"/>
+      <text x="735" y="671" text-anchor="middle" class="body ink" font-size="12" font-weight="700">Research</text>
+      <text x="859" y="671" text-anchor="middle" class="body ink" font-size="12" font-weight="700">Test plan</text>
+      <text x="993" y="671" text-anchor="middle" class="body ink" font-size="12" font-weight="700">Diff review</text>
+    </g>
+
+    <path d="M288 416h46" stroke="#f2c14e" stroke-width="1.6" marker-end="url(#arrow)"/>
+    <text x="310" y="402" text-anchor="middle" class="body" fill="#ffe29b" font-size="11">starts</text>
+  </g>
+
+</svg>

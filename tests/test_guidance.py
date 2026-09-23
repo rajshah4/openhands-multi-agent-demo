@@ -30,7 +30,16 @@ def local_markdown_targets(path: Path) -> list[Path]:
 
 
 def test_guidance_local_links_exist() -> None:
-    guides = [ROOT / "README.md", ROOT / "BEST_PRACTICES.md"]
+    guides = [
+        ROOT / "README.md",
+        ROOT / "BEST_PRACTICES.md",
+        ROOT / "PATTERNS.md",
+        ROOT / "docs" / "choosing-a-pattern.md",
+        ROOT / "docs" / "agent-canvas-and-acp.md",
+        ROOT / "patterns" / "parent-child" / "README.md",
+        ROOT / "patterns" / "polling" / "README.md",
+        ROOT / "automations" / "implement-approved-spec" / "README.md",
+    ]
     missing = [
         target
         for guide in guides
@@ -45,10 +54,10 @@ def test_getting_started_has_quick_start_and_deeper_guidance() -> None:
     sections = [
         "## Start Here",
         "## The Core Model",
-        "## 1. SDK Orchestration",
-        "## 2. Automations and Reconciliation",
-        "## 3. Parent-Child Conversations",
-        "## Combining the Patterns",
+        "## 1. Bounded In-Conversation Delegation",
+        "## 2. Bounded Supervised Lifecycle",
+        "## 3. Durable Asynchronous Workflow",
+        "## Combining the Approaches",
         "## Execution and Worker Choices",
         "## Choosing Durable State",
         "## Production Practices",
@@ -58,14 +67,16 @@ def test_getting_started_has_quick_start_and_deeper_guidance() -> None:
     assert offsets == sorted(offsets)
     assert "python3 orchestrate_once.py --dry-run" in text
     assert "python3 run_supervisor.py --dry-run" in text
-    assert "**Execution**" in text
     assert "**Coordination**" in text
+    assert "**Worker identity**" in text
+    assert "**Runtime placement**" in text
+    assert "**Worker implementation**" in text
     assert "**Workflow state**" in text
     assert "conversation" in text and "sandbox" in text
     assert "automation" in text and "durable state" in text
-    assert "Application database" in text
+    assert "application database" in text.lower()
     assert "patterns/common/openhands_conversations.py" in text
-    assert "Jira story to reviewed PR" in text
+    assert "### 3B. Event Handoff" in text
     assert "agent opens a GitHub pull request" in text
     assert "independent review agent" in text
     assert "human decides whether to merge" in text
@@ -84,13 +95,88 @@ def test_getting_started_has_quick_start_and_deeper_guidance() -> None:
 def test_getting_started_visuals_exist() -> None:
     text = (ROOT / "README.md").read_text(encoding="utf-8")
     visuals = [
+        ROOT / "assets" / "three-approaches.svg",
         ROOT / "assets" / "start-sdk-subagents.svg",
         ROOT / "assets" / "start-automation-controller.svg",
         ROOT / "assets" / "start-enterprise-conversations.svg",
+        ROOT / "assets" / "pattern-event-driven.svg",
+        ROOT / "assets" / "composable-layers.svg",
         ROOT / "assets" / "multi-harness-coding-team.svg",
     ]
     assert all(path.exists() for path in visuals)
     assert all(path.name in text for path in visuals)
+
+
+def test_canonical_approaches_are_consistent() -> None:
+    sources = [
+        ROOT / "README.md",
+        ROOT / "BEST_PRACTICES.md",
+        ROOT / "docs" / "choosing-a-pattern.md",
+        SKILL / "SKILL.md",
+        SKILL / "references" / "architecture-patterns.md",
+    ]
+    names = [
+        "Bounded in-conversation delegation",
+        "Bounded supervised lifecycle",
+        "Durable asynchronous workflow",
+    ]
+    for source in sources:
+        text = source.read_text(encoding="utf-8").lower()
+        assert all(name.lower() in text for name in names), source
+    chooser = (ROOT / "docs" / "choosing-a-pattern.md").read_text(encoding="utf-8")
+    assert "choose-an-approach.svg" in chooser
+    assert (ROOT / "assets" / "choose-an-approach.svg").exists()
+
+
+def test_chooser_uses_controller_survival_as_the_durability_gate() -> None:
+    chooser = (ROOT / "docs" / "choosing-a-pattern.md").read_text(encoding="utf-8")
+    svg = (ROOT / "assets" / "choose-an-approach.svg").read_text(encoding="utf-8")
+    decision = chooser.split("## Decide in Two Questions", 1)[1].split(
+        "## 1. Bounded In-Conversation Delegation", 1
+    )[0]
+
+    assert "Must the logical workflow survive beyond any one controller run?" in decision
+    assert "**Yes:** choose [Approach 3]" in decision
+    assert "**No:** continue to question 2" in decision
+    assert "Can one parent remain accountable" not in chooser
+    assert "Must a later controller resume this workflow" in svg
+    assert "after this run ends?" in svg
+    assert "YES · DURABLE" in svg
+    assert "NO · BOUNDED" in svg
+    assert "YES · BOUNDED" not in svg
+    assert "NO · DURABLE" not in svg
+    assert "Do workers need their own conversation records?" in chooser
+    assert "conversation records?" in svg
+
+
+def test_shared_workspace_paths_have_distinct_approach_classifications() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    placement = (ROOT / "PATTERNS.md").read_text(encoding="utf-8")
+    delegation = readme.split("## 1. Bounded In-Conversation Delegation", 1)[1].split(
+        "## 2. Bounded Supervised Lifecycle", 1
+    )[0]
+
+    assert "native delegation path" in delegation
+    assert "outer pipeline is Approach 2 with" in delegation
+    assert "review conversation nests Approach 1" in delegation
+    assert "Approach 1 native `TaskToolSet` subagents" in placement
+    assert "application-controlled Approach 2 pipeline" in placement
+
+
+def test_supervisor_forms_and_workflow_plugin_lineage_are_explicit() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    chooser = (ROOT / "docs" / "choosing-a-pattern.md").read_text(encoding="utf-8")
+    polling = (ROOT / "patterns" / "polling" / "README.md").read_text(
+        encoding="utf-8"
+    )
+
+    for text in (readme, chooser):
+        normalized = " ".join(text.split())
+        assert "deterministic application code or an agent conversation" in normalized
+    for text in (readme, chooser, polling):
+        assert "ohtv-workflow" in text
+        assert "pr-workflow" in text
+        assert "generic successor" in text
 
 
 def test_best_practices_has_neurogolf_operating_lessons() -> None:

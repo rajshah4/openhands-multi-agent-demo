@@ -9,6 +9,20 @@ The main lesson is that an agent platform supplies conversations and execution
 environments. The application still needs explicit control, workflow state,
 validation, capacity limits, recovery, and cleanup.
 
+## Choose An Approach First
+
+Use controller lifetime and worker identity to select the top-level approach:
+
+| Approach | Ownership model | Use when |
+| --- | --- | --- |
+| **1. Bounded in-conversation delegation** | One parent conversation delegates to subagents and waits | A bounded request needs specialist help inside one parent run |
+| **2. Bounded supervised lifecycle** | One live supervisor manages first-class child conversations and gates | One bounded request needs visible workers or separate conversation histories |
+| **3. Durable asynchronous workflow** | External state survives temporary controllers; reconciliation or events advance work | Progress spans runs, CI, systems, or human decisions |
+
+The approaches compose. A durable workflow may start one supervised lifecycle,
+and any first-class worker may use bounded subagents internally. After choosing
+the ownership model, make the execution, control, and state decisions below.
+
 ## Separate Three Decisions
 
 Design these layers independently:
@@ -40,15 +54,16 @@ read workflow state
 Use SDK subagents when one bounded task needs a few trusted specialists.
 
 - The parent owns the main task and delegates through `TaskToolSet`.
-- Independent task calls can run concurrently through the SDK's experimental
-  `tool_concurrency_limit`; dependent work should remain ordered.
+- `tool_concurrency_limit` defaults to `1`; increasing this experimental setting
+  lets independent task calls run concurrently, while dependent work should
+  remain ordered.
 - The parent and subagents share a runtime, filesystem, credentials, timeout,
   and failure scope.
 - Each subagent can keep task-specific history, but it is not a separate
   top-level ownership or service-level boundary.
 - Keep top-level queue ownership outside subagent calls.
 
-Implementation:
+Implementation: the native `TaskToolSet` path in
 [`shared_workspace.py`](shared_workspace.py)
 
 ### Isolated Enterprise conversations
@@ -81,7 +96,9 @@ Use grouped placement when trusted workers need separate conversation
 histories but can share runtime capacity.
 
 - Conversations remain separate.
-- Filesystem, credentials, CPU, memory, and the failure domain are shared.
+- Filesystem sharing depends on backend placement and must be qualified; do not
+  assume sibling workspaces are mutually visible.
+- Credentials, CPU, memory, and the sandbox failure domain are shared.
 - Grouping is a capacity mode, not a security boundary.
 - One outer controller owns the grouped sandbox lifecycle.
 - A child must not pause or release a sandbox while siblings still use it.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Pattern 2: Isolated Multi-Agent Orchestration
+Isolated Local Workspaces
 ==============================================
 
 Run multiple isolated OpenHands SDK conversations with manual git orchestration.
@@ -17,7 +17,7 @@ Architecture:
     └─► Agent 3 [OpenHands SDK reviewer]         → /tmp/workspace_reviewer/
           └─ git pull → review, with local pytest verification earlier in the flow
 
-Key Differences from Pattern 1:
+Key Differences from a shared workspace:
 - Each agent has its OWN isolated workspace
 - The orchestrator mirrors the local repo into a temporary bare origin
 - You manually orchestrate git push/pull between agents
@@ -47,7 +47,7 @@ except ImportError:
     print("❌ OpenHands SDK not installed")
     print("\nInstall with:")
     print("  pip install openhands-ai")
-    print("\nOr run Pattern 3 (cloud_conversations.py) which uses Cloud API instead")
+    print("\nOr run cloud_conversations.py, which uses managed conversations instead")
     sys.exit(1)
 
 
@@ -346,14 +346,14 @@ def run_multi_agent_pipeline(
     repo_source: str = str(DEFAULT_REPO_SOURCE),
 ):
     """
-    Run the multi-agent pipeline with full isolation.
-    
-    This is the complex orchestration that Pattern 2 requires.
-    Each agent gets its own workspace and you manually coordinate via git.
+    Run the multi-agent pipeline with file-isolated local clones.
+
+    Each agent gets its own working tree, while the process, host resources, and
+    credentials may remain shared. Code moves between workers through Git.
     """
     print("="*60)
-    print("  Pattern 2: Isolated Multi-Agent Orchestration")
-    print("  Multiple Workspaces · Full Isolation · Manual Git Coordination")
+    print("  Isolated Local Workspaces")
+    print("  Multiple Workspaces · File Isolation · Manual Git Coordination")
     print("="*60)
     
     if task_name not in TASKS:
@@ -544,7 +544,7 @@ def run_multi_agent_pipeline(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Pattern 2: Isolated multi-agent orchestration with manual git coordination"
+        description="Isolated local workspaces with manual git coordination"
     )
     parser.add_argument(
         "--task",
@@ -570,22 +570,22 @@ def main():
     
     args = parser.parse_args()
     
-    print("\n⚠️  PATTERN 2: ISOLATED MULTI-AGENT")
+    print("\n⚠️  ISOLATED LOCAL WORKSPACES")
     print("="*60)
-    print("This pattern requires ~300 lines of orchestration code.")
-    print("Each agent runs in an isolated workspace.")
+    print("This placement requires ~300 lines of orchestration code.")
+    print("Each agent gets a separate Git workspace on the same host.")
     print("You manually coordinate with git push/pull.")
     print()
     print("Complexity: HIGH (~300 lines of orchestration)")
     print()
     print("Consider simpler alternatives:")
-    print("  • Pattern 1 (shared_workspace.py) — Shared workspace, simple")
-    print("  • Pattern 3 (cloud_conversations.py) — Cloud-managed, automatic")
+    print("  • shared_workspace.py — Shared workspace, simple")
+    print("  • cloud_conversations.py — Managed conversations")
     print("="*60)
     print()
     
     if not args.yes:
-        response = input("Continue with Pattern 2? [y/N]: ")
+        response = input("Continue with isolated local workspaces? [y/N]: ")
         if response.lower() != 'y':
             print("Exiting.")
             sys.exit(0)

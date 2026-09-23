@@ -1,525 +1,281 @@
-# Multi-Agent Orchestration Patterns
+# Execution Boundaries and Runtime Placement
 
-This document explains three runtime patterns for orchestrating multiple agents
-with OpenHands.
+This guide answers **where agents run and what they share**. It does not define
+how work advances.
 
-The main idea is that OpenHands can act as the orchestration layer, or control
-plane. The workflow can stay stable while the runtime model changes: agents can
-share a workspace directly, hand off state through git across isolated local
-clones, or run in enterprise-managed cloud sandboxes.
+Choose the orchestration approach first in
+[Choosing an Approach](docs/choosing-a-pattern.md):
 
-The sections below focus on runtime trade-offs and when to use each one. For
-workflow shapes - the supervisor and reconciler patterns - see
-[`docs/choosing-a-pattern.md`](docs/choosing-a-pattern.md) and [`patterns/`](patterns/).
+1. bounded in-conversation delegation
+2. bounded supervised lifecycle
+3. durable asynchronous workflow
 
-Agent harnesses still matter, but they are not the primary taxonomy. ACP lets
-OpenHands and Agent Canvas connect to specialized tools such as Claude Code,
-Gemini CLI, Pi, or other compatible agents. Treat those as interchangeable
-workers that can sit inside any runtime pattern.
+Then choose a placement boundary for each worker. The same orchestration
+approach can use different placements as trust, scale, and failure requirements
+change.
 
-The runtime examples in this guide are the validated demo path for the repo.
-The newer workflow examples are intentionally documented as pattern scaffolds
-until they are exercised against live end-to-end flows.
+## Keep Four Decisions Separate
 
-## Quick Visual Guide
+| Decision | Question | Examples |
+| --- | --- | --- |
+| Orchestration approach | Who owns progress, and how long must that owner survive? | Parent delegation, live supervisor, durable reconciler or event chain |
+| Conversation identity | Does the worker need its own history and audit record? | Subagent task, first-class conversation |
+| Runtime placement | What do workers share? | Workspace, process, credentials, compute, sandbox, timeout |
+| Worker implementation | Which coding harness performs the assignment? | Native OpenHands agent, command-line harness, ACP-backed profile |
 
+A **conversation** is an ownership, history, and audit boundary. A **sandbox**
+is a compute, filesystem, credential, timeout, and failure boundary. A Git
+worktree separates files, but it does not create a new process, credential set,
+or failure boundary.
+
+## Placement Overview
+
+| Placement | File boundary | Compute and credential boundary | Operational cost | Good fit |
+| --- | --- | --- | --- | --- |
+| **Shared workspace/runtime** | Shared | Shared | Low | Trusted sequential specialists and local prototypes |
+| **Git worktrees or isolated clones** | Separate working trees | Usually shared host and credentials | Medium to high | Parallel file isolation without managed sandboxes |
+| **Grouped managed conversations** | Backend-dependent conversation workspaces | Shared sandbox capacity | Medium | Trusted workers need separate histories but may share compute |
+| **Isolated managed sandboxes** | Separate | Separate when explicitly configured | Medium | Trust, tenant, credential, or failure boundaries |
+
+First-class conversation creation does not by itself prove isolation. Managed
+placement follows backend configuration unless the controller explicitly
+creates a sandbox and attaches the conversation to it.
+
+## Quick Decision Guide
+
+```text
+Do workers cross a trust, tenant, credential, or failure boundary?
+|
++-- Yes -> require explicitly isolated sandboxes
+|
++-- No -> Do concurrent workers need separate files?
+          |
+          +-- No -> shared workspace/runtime
+          |
+          +-- Yes -> Do separate conversation histories matter?
+                     |
+                     +-- No -> Git worktrees or isolated clones
+                     |
+                     +-- Yes -> grouped managed conversations or
+                                first-class conversations with worktrees
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Pattern 1: Easy                          │
-│  ┌────────────────────────────────────────────┐             │
-│  │  Single Agent-Server (one workspace)       │             │
-│  │  ├─ Agent 1 ──┐                            │             │
-│  │  ├─ Agent 2 ──┼─→ Shared Files             │             │
-│  │  └─ Agent 3 ──┘                            │             │
-│  └────────────────────────────────────────────┘             │
-│  ✅ Simple (~10 lines)  ❌ No isolation                      │
-└─────────────────────────────────────────────────────────────┘
 
-┌─────────────────────────────────────────────────────────────┐
-│              Pattern 2: Isolated Local                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐                  │
-│  │ Clone 1  │  │ Clone 2  │  │ Clone 3  │                  │
-│  │ Agent 1  │  │ Agent 2  │  │ Agent 3  │                  │
-│  │ /tmp/ws1 │  │ /tmp/ws2 │  │ /tmp/ws3 │                  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘                  │
-│       └──────git───┬─────git──────┘                        │
-│                    └─→ Local orchestrator                   │
-│  ✅ Full isolation  ❌ Complex local control                 │
-└─────────────────────────────────────────────────────────────┘
+Isolation is not automatically better. Use the narrowest boundary that meets
+the real risk and observability requirements.
 
-┌─────────────────────────────────────────────────────────────┐
-│                  Pattern 3: Enterprise                      │
-│  cloud_conversations.py                                     │
-│       │                                                     │
-│       ├─► ☁️  Sandbox 1 (auto) → Agent 1 + Web UI          │
-│       ├─► ☁️  Sandbox 2 (auto) → Agent 2 + Web UI          │
-│       └─► ☁️  Sandbox 3 (auto) → Agent 3 + Web UI          │
-│              Platform handles everything ✅                  │
-│  ✅ Full isolation  ✅ Simple code  ✅ Observability         │
-└─────────────────────────────────────────────────────────────┘
+## Shared Workspace and Runtime
+
+All workers read and write one workspace. This is the smallest local setup and
+the fastest handoff because output is immediately visible to the next worker.
+
+```text
+one process or sandbox
++-- shared workspace
+    +-- implementer
+    +-- tester
+    +-- reviewer
 ```
 
-## Pattern Overview
+[`shared_workspace.py`](shared_workspace.py) demonstrates two application
+paths in one workspace:
 
-| Pattern | State Sharing | Isolation | Operational Complexity | Infrastructure |
-|---------|---------------|-----------|------------------------|----------------|
-| **1. Easy** | Shared workspace | None | Low | None |
-| **2. Isolated Local** | Git handoff | Full | High | Manual |
-| **3. Enterprise** | Git handoff | Full | Medium | Automatic |
+- Approach 1 native `TaskToolSet` subagents inside one parent conversation
+- an application-controlled Approach 2 pipeline with ACP-backed SDK
+  conversations; its final review conversation nests Approach 1 delegation
 
-## Runtime Pattern vs Workflow Pattern
+### Advantages
 
-Runtime patterns answer where agents run. Workflow patterns answer how work
-advances. Keep those choices separate:
+- minimal infrastructure and coordination code
+- direct file handoff
+- fast local iteration
+- convenient for trusted sequential work
 
-- Use this guide to choose shared workspace, isolated local clones, or
-  Enterprise-managed sandboxes.
-- Use [`docs/choosing-a-pattern.md`](docs/choosing-a-pattern.md) to choose the
-  supervisor or reconciler workflow pattern.
-- Use Agent Canvas, automations, or scripts as the surface that starts and
-  observes the workflow.
+### Limits
 
-Any workflow pattern can be implemented on top of any runtime pattern, though
-some combinations are more natural than others.
+- workers can overwrite or corrupt shared state
+- filesystem, credentials, compute, timeout, and failures are coupled
+- parallel writes to the same files are unsafe
+- a separate SDK `Conversation` object does not create runtime isolation
+
+Use this placement for prototypes, sequential pipelines, and tightly trusted
+specialists. Add a stronger boundary before crossing trust or credential
+boundaries. The SDLC demo's
+[shared-working-tree case study](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/docs/agent-canvas-dark-factory-demo.md)
+records this trade-off in a larger workflow.
+
+## Git Worktrees or Isolated Clones
+
+Each worker gets a separate working tree or clone. Code moves through commits,
+branches, and explicit merges instead of direct file sharing.
+
+```text
+local controller
++-- bare or remote Git origin
+    +-- implementation worktree
+    +-- test worktree
+    +-- review worktree
+```
+
+[`multi_server_isolation.py`](multi_server_isolation.py) demonstrates the
+heavier isolated-clone variant: it creates a temporary bare origin, prepares
+separate clones, runs one SDK conversation per phase, and performs explicit Git
+handoffs and local verification.
+
+Git worktrees provide a lighter version when workers may share one host and
+repository object database. Matt Pocock's
+[`implement-spec`](https://github.com/mattpocock/skills/tree/main/skills/in-progress/implement-spec)
+uses worktrees to isolate parallel implementers inside one bounded parent run.
+
+### Advantages
+
+- conflicting file edits are separated
+- branches and commits create durable reviewable handoffs
+- works locally and in air-gapped environments
+- does not require a managed sandbox service
+
+### Limits
+
+- process, credentials, host resources, and failures may still be shared
+- the controller owns branch creation, synchronization, merge conflicts, and
+  cleanup
+- Git is a durable artifact channel, not a transactional queue or lease system
+- long-running workflows still need a durable workflow ledger
+
+Use worktrees when file isolation is enough. Use isolated clones when workers
+need separate repository directories or machines and the extra Git coordination
+is justified.
+
+## Grouped Managed Conversations
+
+First-class conversations retain separate histories and visible URLs while a
+backend groups trusted workers into shared sandbox capacity.
+
+```text
+one managed sandbox
++-- conversation A workspace
++-- conversation B workspace
++-- conversation C workspace
+```
+
+Grouping can reduce startup overhead and improve utilization. It is useful for
+a bounded supervised lifecycle when workers need distinct identities but belong
+to one trusted team.
+
+### Limits
+
+- grouping is not a security or tenant-isolation boundary
+- workers may share credentials, compute pressure, timeout, and sandbox failure
+- workspace sharing depends on backend behavior and must be tested
+- one owner must manage capacity, draining, reference counts, and cleanup
+
+The
+[Enterprise sandbox-grouping experiment](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/enterprise-sandbox-grouping)
+contains measured evidence and explicit production limitations.
+
+## Isolated Managed Sandboxes
+
+Workers that cross trust, credential, tenant, or failure boundaries should use
+explicitly isolated sandboxes.
+
+```text
+controller
++-- implementation conversation + writable sandbox
++-- review conversation + read-only sandbox
++-- QA conversation + test-only sandbox
+```
+
+[`cloud_conversations.py`](cloud_conversations.py) demonstrates a bounded
+application-controlled lifecycle using managed first-class conversations and
+Git handoff. Default placement follows the deployment configuration. When exact
+isolation is required, use the explicit create, prepare, attach, and cleanup
+helpers in
+[`patterns/common/openhands_conversations.py`](patterns/common/openhands_conversations.py).
+The SDLC demo's
+[separate-sandboxes case study](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/docs/replicated-jira-delegated-factory-demo.md)
+shows this placement in a larger delegated workflow.
+
+### Advantages
+
+- strongest compute, filesystem, credential, timeout, and failure separation
+- independently visible conversation histories
+- backend-managed provisioning and observability
+- clearer security and cleanup ownership
+
+### Limits
+
+- more startup latency and capacity consumption
+- output must move through final responses, Git, tickets, or another durable
+  channel
+- explicit placement and cleanup must be qualified against the deployed version
+- conversation creation alone does not guarantee a new sandbox
+
+The
+[Enterprise workflow-primitives experiment](https://github.com/rajshah4/openhands-agent-research-lab/tree/main/experiments/enterprise-workflow-primitives)
+probes explicit sandbox attachment, event recovery, metrics, and cleanup. It is
+infrastructure evidence for supervised and durable workflows, not a separate
+orchestration approach.
 
 ## Where Agent Canvas Fits
 
-Agent Canvas is easiest to explain as a visual control surface over the same
-patterns:
-
-- It can launch or observe ACP-connected agents when the demo needs
-  heterogeneous harnesses.
-- It can make parent-child delegation visible: one supervisor conversation
-  creates bounded child conversations.
-- It can show long-running workflows as a sequence of scheduled wake-ups and
-  worker conversations rather than one forever-running process.
-
-This means Agent Canvas does not replace the runtime choice. It makes the
-orchestration easier to inspect and easier to teach.
-
----
-
-## Pattern 1: Easy (Single Agent-Server)
-
-### Architecture
-
-```
-┌─────────────────────────────────────────┐
-│   One Agent-Server Process              │
-│   ┌─────────────────────────────────┐   │
-│   │  Shared Workspace (/project)    │   │
-│   │                                 │   │
-│   │  Agent 1 (Claude)    ───┐      │   │
-│   │                         ↓      │   │
-│   │  Agent 2 (Gemini)    → Files   │   │
-│   │                         ↑      │   │
-│   │  Agent 3 (Reviewer)  ───┘      │   │
-│   │                                 │   │
-│   └─────────────────────────────────┘   │
-└─────────────────────────────────────────┘
-```
-
-### How It Works
-
-All agents run in **one process** with a **shared workspace**:
-
-1. Agent 1 writes files to `/workspace/project`
-2. Agent 2 reads those files, adds tests
-3. Agent 3 reads everything, performs review
-
-**Communication:** Direct filesystem access (instant)
-
-### Code Example
-
-```python
-from openhands import Conversation, Agent
-
-workspace = "/workspace/project"
-
-# All agents share the same workspace
-implementer = Conversation(agent=claude_agent, workspace=workspace)
-implementer.send_message("Create shortener.py")
-implementer.run()
-
-tester = Conversation(agent=gemini_agent, workspace=workspace)
-tester.send_message("Write tests for shortener.py")  # Sees Claude's file!
-tester.run()
-
-reviewer = Conversation(agent=reviewer_agent, workspace=workspace)
-reviewer.send_message("Review all .py files")  # Sees everything!
-reviewer.run()
-```
-
-**Lines of code:** ~10
-
-### Pros & Cons
-
-**✅ Advantages:**
-- Extremely simple code
-- Fast (no network, no git)
-- All SDK features (DelegateTool, ACP, file-based agents)
-- No infrastructure to manage
-- Free
-
-**❌ Disadvantages:**
-- No isolation between agents
-- Agents can interfere with each other's work
-- If one agent corrupts state, all agents affected
-- Can't distribute across machines
-
-### When to Use
-
-- **Local development** — Quick iteration and testing
-- **Tight collaboration** — Agents need to work on same files
-- **Simple workflows** — Sequential or coordinated parallel work
-
----
-
-## Pattern 2: Isolated Local (Multiple Workspaces)
-
-### Architecture
-
-```
-┌──────────────────────────────┐
-│ Local orchestrator process   │
-│ multi_server_isolation.py    │
-└──────────────┬───────────────┘
-               │ creates a temporary bare origin
-               ↓
-         ┌──────────────┐
-         │ origin.git   │
-         └──────┬───────┘
-                │
-    ┌───────────┼───────────┐
-    ↓           ↓           ↓
-┌──────────┐ ┌──────────┐ ┌──────────┐
-│ Clone A  │ │ Clone B  │ │ Clone C  │
-│ impl     │ │ test     │ │ review   │
-│ /tmp/... │ │ /tmp/... │ │ /tmp/... │
-└──────────┘ └──────────┘ └──────────┘
-```
-
-### How It Works
-
-Each phase runs in **its own git clone** with an **isolated workspace**:
-
-1. Mirror the current repo into a temporary bare origin
-2. Clone that origin three times into separate temp directories
-3. Run an OpenHands SDK conversation in each workspace
-4. YOU orchestrate git push/pull between workspaces
-5. Run local `pytest` in the tester workspace before review
-
-**Communication:** Git (explicit push/pull)
-
-### Code Example (Conceptual)
-
-```python
-# Create a local bare origin from the current checkout
-origin = create_origin_repo(repo_source)
-
-# Clone isolated workspaces for each phase
-for ws in ["/tmp/ws1", "/tmp/ws2", "/tmp/ws3"]:
-    subprocess.run(["git", "clone", origin, ws])
-    subprocess.run(["git", "checkout", "-b", branch], cwd=ws)
-
-# Phase 1: implementation
-run_agent("/tmp/ws1", "implement shortener.py", llm=anthropic_llm)
-subprocess.run(["git", "push", "-u", "origin", branch], cwd="/tmp/ws1")
-
-# Phase 2: tests
-subprocess.run(["git", "fetch", "origin", branch], cwd="/tmp/ws2")
-subprocess.run(["git", "merge", "--ff-only", "FETCH_HEAD"], cwd="/tmp/ws2")
-run_agent("/tmp/ws2", "write pytest tests", llm=gemini_llm)
-ok = subprocess.run([sys.executable, "-m", "pytest", "-q"], cwd="/tmp/ws2")
-if ok.returncode != 0:
-    run_agent("/tmp/ws2", "repair pytest failures", llm=gemini_llm)
-
-# Phase 3: review
-subprocess.run(["git", "fetch", "origin", branch], cwd="/tmp/ws3")
-subprocess.run(["git", "merge", "--ff-only", "FETCH_HEAD"], cwd="/tmp/ws3")
-run_agent("/tmp/ws3", "review all .py files", llm=reviewer_llm)
-```
-
-**Code footprint:** High enough that the orchestration is the main point of the demo.
-
-### Orchestration Responsibilities
-
-**YOU must manage:**
-
-1. **Workspace isolation:**
-   - Create N temporary directories
-   - Mirror the source repo into a temporary bare origin
-   - Clone the origin into each workspace
-   - Preserve or clean up workspaces
-
-2. **Git coordination:**
-   - Push after each agent completes
-   - Pull before next agent starts
-   - Handle merge conflicts
-   - Branch management
-
-3. **Verification and retries:**
-   - Run local `pytest` after the test-writing phase
-   - Feed failure output back into a repair pass
-   - Decide when to abort after retries
-
-4. **Error handling:**
-   - Detect agent failures
-   - Retry logic
-   - Preserve artifacts for inspection
-
-### Pros & Cons
-
-**✅ Advantages:**
-- Full isolation (separate filesystems and git clones)
-- Air-gapped capability (no Cloud dependency)
-- Can distribute across machines (with networking)
-- Agents can't interfere with each other
-
-**❌ Disadvantages:**
-- Complex orchestration
-- Manual git coordination
-- No automatic cleanup
-- No built-in observability
-
-### When to Use
-
-- **Air-gapped environments** — No Cloud connectivity allowed
-- **Custom orchestration** — Building your own platform
-- **Learning** — Understanding multi-agent infrastructure
-- **Extreme isolation requirements** — Regulatory/security needs
-
----
-
-## Pattern 3: Enterprise (Automatic Multi-Sandbox)
-
-### Architecture
-
-```
-cloud_conversations.py (your laptop)
-│
-│  Orchestration Logic Only
-│
-├─► OpenHands Cloud/Enterprise API
-    │
-    ├─► ☁️ Sandbox 1 (automatic)
-    │     ├─ Git setup ✅
-    │     ├─ Workspace isolation ✅
-    │     ├─ Agent: Claude Code
-    │     └─ Web UI for observability
-    │
-    ├─► ☁️ Sandbox 2 (automatic)
-    │     ├─ Git setup ✅
-    │     ├─ Workspace isolation ✅
-    │     ├─ Agent: Gemini CLI
-    │     └─ Web UI for observability
-    │
-    └─► ☁️ Sandbox 3 (automatic)
-          ├─ Git setup ✅
-          ├─ Workspace isolation ✅
-          ├─ Agent: OpenHands
-          └─ Web UI for observability
-```
-
-### How It Works
-
-The platform **automatically provisions** sandboxes for each agent:
-
-1. YOU call the API: "Start conversation for implementation"
-2. Platform provisions sandbox, sets up git, starts agent
-3. Platform monitors, provides Web UI, handles cleanup
-4. Repeat for each agent
-
-**Communication:** Git (platform manages it)
-
-### Code Example
-
-```python
-import requests
-
-API = "https://app.all-hands.dev/api/v1/app-conversations"
-headers = {"Authorization": f"Bearer {API_KEY}"}
-
-# Start conversation 1 (Cloud provisions sandbox automatically)
-conv1 = requests.post(API, headers=headers, json={
-    "task": "implement shortener.py",
-    "repo": "youruser/yourrepo",
-    "branch": "feature-branch"
-}).json()
-
-print(f"Watch Claude work: {conv1['url']}")  # Live Web UI!
-wait_for_completion(conv1['id'])
-
-# Start conversation 2 (new sandbox, pulls conv1's work automatically)
-conv2 = requests.post(API, headers=headers, json={
-    "task": "write tests for shortener.py",
-    "repo": "youruser/yourrepo",
-    "branch": "feature-branch"
-}).json()
-
-print(f"Watch Gemini work: {conv2['url']}")
-wait_for_completion(conv2['id'])
-
-# Start conversation 3 (new sandbox, pulls all previous work)
-conv3 = requests.post(API, headers=headers, json={
-    "task": "review all .py files",
-    "repo": "youruser/yourrepo",
-    "branch": "feature-branch"
-}).json()
-
-print(f"Watch review: {conv3['url']}")
-wait_for_completion(conv3['id'])
-
-# Cloud handles cleanup automatically
-```
-
-**Code footprint:** Thinner than Pattern 2 because Cloud handles the sandbox lifecycle.
-
-### Cloud Handles
-
-**Automatic infrastructure:**
-
-1. ✅ **Sandbox provisioning** — Spin up isolated containers
-2. ✅ **Git integration** — Clone repo, checkout branch, push/pull
-3. ✅ **Port management** — No port conflicts
-4. ✅ **Observability** — Web UI for each conversation
-5. ✅ **Cleanup** — Terminate sandboxes when done
-6. ✅ **Error recovery** — Retry logic, stuck detection
-7. ✅ **Persistence** — Conversation history, artifacts
-8. ✅ **Authentication** — Secure API keys, secrets management
-
-### Pros & Cons
-
-**✅ Advantages:**
-- Full isolation (Cloud provisions separate sandboxes)
-- Thinner local orchestration than Pattern 2
-- Automatic orchestration (Cloud does the hard work)
-- Web UI observability (watch agents work in real-time)
-- No infrastructure management
-- Scalable (Cloud handles capacity)
-- Audit trail (conversation history)
-
-**❌ Disadvantages:**
-- Requires internet connectivity
-- Requires Cloud or Enterprise connectivity
-- Less control over infrastructure
-- Vendor dependency (OpenHands Cloud)
-
-### When to Use
-
-- **Production workflows** — Reliability and observability critical
-- **Enterprise** — Auditability, compliance, multi-user
-- **Observability** — Need to watch agents work
-- **Scale** — Many parallel agents
-
----
-
-## The "Goldilocks" Principle
-
-```
-Pattern 1 (Easy):          Too coupled      ← Local dev
-Pattern 2 (Multi-Local):   Too complex      ← Air-gapped only
-Pattern 3 (Enterprise):    Just right! ✨    ← Production
-```
-
-### Key Insight
-
-**Pattern 3 = Isolation of Pattern 2 + Simplicity of Pattern 1**
-
-Enterprise orchestration gives you:
-- Full isolation (like Pattern 2)
-- Simple code (like Pattern 1)
-- Plus: Observability, scalability, reliability
-
-This is why `cloud_conversations.py` stays relatively thin while
-`multi_server_isolation.py` carries the local orchestration burden directly.
-
----
-
-## Decision Tree
-
-```
-Do you need full isolation between agents?
-│
-├─ No → Pattern 1 (Easy)
-│        - Simple local dev
-│        - Agents collaborate tightly
-│        - Low orchestration overhead
-│
-└─ Yes → Can you use Enterprise?
-         │
-         ├─ Yes → Pattern 3 (Enterprise)
-         │         - Production workflows
-         │         - Thin local wrapper
-         │         - Automatic orchestration
-         │
-         └─ No → Pattern 2 (Isolated Local)
-                  - Air-gapped environments
-                  - High orchestration overhead
-                  - Manual orchestration
-```
-
----
-
-## Migration Path
-
-Most teams follow this progression:
-
-1. **Start with Pattern 1** — Prove the concept locally
-   - Fast iteration
-   - Learn multi-agent patterns
-   - Test agent/harness integration
-
-2. **Move to Pattern 3** — Scale to production
-   - Add observability
-   - Handle multiple users
-   - Audit requirements
-
-3. **Consider Pattern 2** — Only if Cloud isn't an option
-   - Air-gapped deployment
-   - Regulatory constraints
-   - Custom platform requirements
-
-**Anti-pattern:** Starting with Pattern 2 before trying Pattern 1 or 3.
-Most teams don't need the complexity of managing isolated local clones and git
-handoff logic themselves.
-
----
-
-## Related Concepts
-
-### Agent-Server vs App-Server
-
-- **agent-server** — Single agent runtime (Pattern 1, Pattern 2)
-- **app-server** — Multi-agent orchestration (Pattern 3, Enterprise)
-
-Pattern 2 recreates, locally and manually, parts of what the **app-server**
-does automatically in Pattern 3.
-
-### Agent Canvas + OpenHands Runtime
-
-Agent Canvas can sit above these runtime patterns:
-
-- **Pattern 1:** Canvas or a script drives a local agent-server and shared
-  workspace.
-- **Pattern 2:** Canvas or a script drives a local orchestrator that manages
-  isolated local workspaces.
-- **Pattern 3:** Canvas or a script drives OpenHands Cloud/Enterprise
-  conversations where the platform manages sandboxes.
-
-With ACP connectivity, Canvas can also include external agent harnesses in the
-same visible workflow. That is the flexibility story: Canvas shows the system,
-OpenHands coordinates it, and the runtime pattern determines isolation.
-
----
+Agent Canvas is a visual control surface over the same decisions:
+
+- a local supervisor can create separately visible conversations in one shared
+  workspace
+- conversations can use dedicated Git worktrees for file isolation
+- a scheduled controller can show a durable workflow as a sequence of temporary
+  manager and worker conversations
+- saved native or ACP-backed profiles can fill worker roles without changing
+  the orchestration approach
+
+Canvas makes delegation visible. It does not, by itself, provide campaign
+storage or prove sandbox isolation.
+
+## Native Agents, Command-Line Harnesses, and ACP
+
+Worker implementation is another independent choice:
+
+| Worker | Use it when | Controller responsibility |
+| --- | --- | --- |
+| Native OpenHands agent | The worker needs OpenHands tools, skills, plugins, and model configuration | Select tools, model, secrets, placement, and result contract |
+| Coding-agent CLI | The harness is installed in the runtime or does not expose ACP | Capture lifecycle, authentication, artifacts, and output explicitly |
+| ACP-backed profile | Claude Code, Codex, Gemini CLI, or another ACP server should act as the conversation backend | Validate the result like any worker; ACP does not choose placement or control |
+
+Do not infer isolation from the agent harness. A native agent, CLI, or ACP-backed
+profile can run in a shared workspace, a grouped sandbox, or an isolated
+sandbox.
+
+## State Handoff by Placement
+
+| Placement | Appropriate handoff |
+| --- | --- |
+| Shared workspace | Files plus a final response or small result contract |
+| Worktrees or clones | Branches, commits, merges, and validation results |
+| Grouped managed conversations | Final responses plus Git or backend-qualified shared artifacts |
+| Isolated managed sandboxes | Final responses, Git, tickets, object storage, or another durable system |
+
+Never assume a worker's local files are visible to its controller or sibling.
+Make the transfer mechanism explicit in every assignment.
+
+## Evolving a Design
+
+A common progression is:
+
+1. Prove the bounded workflow in a shared workspace.
+2. Add worktrees when parallel file conflicts appear.
+3. Move work to first-class conversations when auditability or independent
+   histories matter.
+4. Require explicitly isolated sandboxes when trust, credentials, tenants, or
+   failure domains diverge.
+5. Add durable reconciliation or event handoffs when the logical workflow must
+   survive controller termination.
+
+These steps are independent. A durable workflow may still use shared local
+workers for a trusted team, while one bounded request may require fully isolated
+children for security reasons.
 
 ## Summary
 
-| Pattern | Isolation | Code | Infrastructure | Use Case |
-|---------|-----------|------|----------------|----------|
-| **1** | None | Low | None | Local dev, prototyping |
-| **2** | Full | High | Manual | Air-gapped, custom platform |
-| **3** | Full | Medium | Automatic (Cloud) | Production, enterprise |
-
-**Recommendation:** Start with Pattern 1, scale to Pattern 3, only use Pattern 2
-if Cloud is not an option.
+Choose orchestration by **who owns progress and for how long**. Choose runtime
+placement by **what workers may safely share**. Choose worker implementation by
+**which harness best performs the assignment**. Record all three explicitly;
+do not compress them into one numbered pattern name.

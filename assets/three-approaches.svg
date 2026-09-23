@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 980" role="img" aria-labelledby="three-approaches-title three-approaches-desc">
+  <title id="three-approaches-title">Three approaches to multi-agent orchestration</title>
+  <desc id="three-approaches-desc">A bounded parent can delegate to subagents, a live supervisor can manage separate worker conversations, and a durable workflow can resume across controller runs. Runtime placement is a separate choice.</desc>
+  <defs>
+    <style>
+      .sans{font-family:"Avenir Next","Segoe UI",Arial,sans-serif}
+      .serif{font-family:Georgia,"Times New Roman",serif;font-weight:700}
+      .ink{fill:#f7f2e8}.muted{fill:#b9c4d5}
+      .label{font-size:15px;font-weight:800;letter-spacing:1.2px}
+      .node{font-size:17px;font-weight:700}
+    </style>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M1 1l7 3.5-7 3.5" fill="none" stroke="#c9d4e5" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
+  <rect width="1200" height="980" fill="#111b2d"/>
+  <text x="60" y="67" class="sans label" fill="#9ab8f5">OPENHANDS · MULTI-AGENT FIELD GUIDE</text>
+  <text x="60" y="121" class="serif ink" font-size="43">Three ways to coordinate agents</text>
+  <text x="60" y="157" class="sans muted" font-size="19">Choose by who owns progress and whether the next run must resume it.</text>
+
+  <g class="sans">
+    <rect x="60" y="196" width="1080" height="220" rx="18" fill="#18263c" stroke="#76a1ff" stroke-width="2"/>
+    <rect x="83" y="221" width="49" height="34" rx="17" fill="#24406c"/>
+    <text x="107.5" y="244" text-anchor="middle" class="label" fill="#d6e4ff">01</text>
+    <text x="151" y="247" class="serif ink" font-size="23">Bounded in-conversation delegation</text>
+    <text x="84" y="300" class="muted" font-size="19">One parent owns a bounded request.</text>
+    <text x="84" y="331" class="muted" font-size="18">Subagents return results inside its conversation.</text>
+    <text x="84" y="383" fill="#bdd1fc" font-size="17" font-weight="700">Use when one task needs specialist help.</text>
+    <rect x="667" y="227" width="437" height="158" rx="14" fill="#111b2d" stroke="#354d75"/>
+    <rect x="800" y="246" width="171" height="42" rx="9" fill="#274674"/>
+    <text x="885.5" y="273" text-anchor="middle" class="node ink">Parent agent</text>
+    <path d="M885 288v24M741 312h288M741 312v13M885 312v13M1029 312v13" fill="none" stroke="#9bbcf4" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="687" y="331" width="108" height="38" rx="8" fill="#233655"/>
+    <rect x="831" y="331" width="108" height="38" rx="8" fill="#233655"/>
+    <rect x="975" y="331" width="108" height="38" rx="8" fill="#233655"/>
+    <text x="741" y="356" text-anchor="middle" class="node ink">Research</text>
+    <text x="885" y="356" text-anchor="middle" class="node ink">Build</text>
+    <text x="1029" y="356" text-anchor="middle" class="node ink">Review</text>
+
+    <rect x="60" y="431" width="1080" height="220" rx="18" fill="#162a30" stroke="#50d3c2" stroke-width="2"/>
+    <rect x="83" y="456" width="49" height="34" rx="17" fill="#1d5c55"/>
+    <text x="107.5" y="479" text-anchor="middle" class="label" fill="#c5f5ec">02</text>
+    <text x="151" y="482" class="serif ink" font-size="28">Bounded supervised lifecycle</text>
+    <text x="84" y="535" class="muted" font-size="19">One live supervisor owns a bounded request.</text>
+    <text x="84" y="566" class="muted" font-size="18">Workers have separate conversation records.</text>
+    <text x="84" y="618" fill="#a9eee3" font-size="17" font-weight="700">Use when workers need independent identity.</text>
+    <rect x="667" y="462" width="437" height="158" rx="14" fill="#111b2d" stroke="#396c69"/>
+    <rect x="800" y="481" width="171" height="42" rx="9" fill="#225c57"/>
+    <text x="885.5" y="508" text-anchor="middle" class="node ink">Supervisor</text>
+    <path d="M885 523v24M741 547h288M741 547v13M885 547v13M1029 547v13" fill="none" stroke="#79d9cd" stroke-width="2" marker-end="url(#arrow)"/>
+    <rect x="682" y="566" width="118" height="38" rx="8" fill="#223c43"/>
+    <rect x="826" y="566" width="118" height="38" rx="8" fill="#223c43"/>
+    <rect x="970" y="566" width="118" height="38" rx="8" fill="#223c43"/>
+    <text x="741" y="591" text-anchor="middle" class="node ink">Implement</text>
+    <text x="885" y="591" text-anchor="middle" class="node ink">Review</text>
+    <text x="1029" y="591" text-anchor="middle" class="node ink">QA</text>
+
+    <rect x="60" y="666" width="1080" height="220" rx="18" fill="#302a1b" stroke="#f2c14e" stroke-width="2"/>
+    <rect x="83" y="691" width="49" height="34" rx="17" fill="#6e501f"/>
+    <text x="107.5" y="714" text-anchor="middle" class="label" fill="#ffecbd">03</text>
+    <text x="151" y="717" class="serif ink" font-size="28">Durable asynchronous workflow</text>
+    <text x="84" y="770" class="muted" font-size="19">External state carries progress across runs.</text>
+    <text x="84" y="801" class="muted" font-size="18">A later controller can continue the same workflow.</text>
+    <text x="84" y="853" fill="#ffe09b" font-size="17" font-weight="700">Use when recovery requires a later run.</text>
+    <rect x="667" y="697" width="437" height="158" rx="14" fill="#171b25" stroke="#82682c"/>
+    <rect x="686" y="745" width="113" height="46" rx="8" fill="#4d3b1f"/>
+    <rect x="830" y="745" width="113" height="46" rx="8" fill="#4d3b1f"/>
+    <rect x="974" y="745" width="113" height="46" rx="8" fill="#3a3c4a"/>
+    <text x="742.5" y="774" text-anchor="middle" class="node ink">Run 1</text>
+    <text x="886.5" y="774" text-anchor="middle" class="node ink">State</text>
+    <text x="1030.5" y="774" text-anchor="middle" class="node ink">Run 2</text>
+    <path d="M800 768h23M944 768h23" fill="none" stroke="#e6c878" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="885" y="828" text-anchor="middle" class="muted" font-size="16">checkpoint · stop · resume</text>
+  </g>
+  <text x="60" y="945" class="sans muted" font-size="18">Conversation identity, runtime placement, and durable state are separate choices.</text>
+</svg>

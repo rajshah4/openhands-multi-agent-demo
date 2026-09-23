@@ -1,152 +1,178 @@
-# Choosing a Pattern
+# Choosing an Approach
 
-Both patterns in this repo answer the same question - *how do I coordinate
-multiple OpenHands agents?* - and they split on a single axis:
+Choose the control boundary first. Runtime placement, worker harness, trigger,
+and storage technology are separate decisions.
 
-> **Does the orchestrator outlive the work, or does the work outlive the
-> orchestrator?**
+![Decision tree for choosing a multi-agent approach](../assets/choose-an-approach.svg)
 
-| | [Parent-Child](../patterns/parent-child/) | [Polling Loop](../patterns/polling/) |
-| --- | --- | --- |
-| Shape | One live parent delegates bounded children and waits | A scheduled tick observes state, takes one action, exits - it never waits |
-| Scope | One request -> one complete lifecycle, now | An unbounded backlog, forever |
-| Where state lives | The orchestrator's context + a run directory | Durable state: files, labels, tickets - the system of record |
-| The interface | The child's final-response contract (`status:` / `summary:` / `next_gate:`) | State transitions (`pending` -> `in-flight` -> `done`) |
-| Failure recovery | Orchestrator gates on `needs-human` / `failed` | Any tick can crash; the next tick re-reads state and recovers |
-| Cost profile | Orchestrator stays alive while children run | Nothing runs between ticks; auto-disables when quiet |
-| Time horizon | Minutes to hours | Hours to days to weeks (CI, human review in the loop) |
-| Mental model | A project manager running a checklist | A thermostat / Kubernetes controller loop |
+## The Three Approaches
+
+| Approach | Controller lifetime | Worker identity | Workflow state | Use when |
+| --- | --- | --- | --- | --- |
+| **1. Bounded in-conversation delegation** | One parent run remains active | Subagents are delegated work inside the parent conversation | Parent history, task IDs, and optional Git artifacts | A bounded request needs specialist help and can wait |
+| **2. Bounded supervised lifecycle** | One live supervisor remains active | Workers are first-class conversations with separate histories | Parent run record, child IDs, final-response contracts, and durable artifacts | One bounded request needs visible workers and gates |
+| **3. Durable asynchronous workflow** | No controller must remain active for the whole workflow | Usually first-class worker conversations or bounded stage runs | External durable state survives every controller invocation | Work spans runs, systems, CI, or human decisions |
+
+The approaches are composable. They are not runtime products and they do not
+imply a particular sandbox layout.
+
+| Approach | Typical horizon | Operational intuition | Idle cost |
+| --- | --- | --- | --- |
+| **1. Bounded delegation** | One specialist task | A parent calling an expert | Parent remains active while it waits |
+| **2. Supervised lifecycle** | One request, usually minutes to hours | A project manager advancing a checklist | Supervisor remains active through the lifecycle |
+| **3. Durable workflow** | A campaign, often hours to weeks | A thermostat, controller loop, or event chain | No controller process is required between ticks or handoffs |
 
 ## Decide in Two Questions
 
-1. **Is the work one bounded request or an ongoing backlog?**
-   One request that should finish while someone watches -> parent-child.
-   A backlog that refills and work that waits on slow externals -> polling loop.
+### 1. Must the logical workflow survive beyond any one controller run?
 
-2. **Can anything hold state for the whole duration?**
-   If a single conversation or process can reasonably stay alive for the whole
-   job -> parent-child. If the job spans hours or days, the only reliable
-   memory is durable state -> polling loop.
+- **Yes:** choose [Approach 3](#3-durable-asynchronous-workflow). External state
+  must carry progress between controller runs.
+- **No:** continue to question 2.
 
-## Compose Them
+### 2. Do workers need their own conversation records?
 
-The patterns are not competitors - the polling loop's worker can be an entire
-parent-child lifecycle:
+- **No:** choose [Approach 1](#1-bounded-in-conversation-delegation). Delegate
+  bounded specialist work inside the parent conversation.
+- **Yes:** choose [Approach 2](#2-bounded-supervised-lifecycle). Keep one live
+  supervisor and create first-class child conversations; add gates where the
+  lifecycle needs them.
 
-```text
-cron tick (polling loop)
-  -> observes: ticket KAN-42 is ready
-  -> spawns ONE worker: a parent-child lifecycle
-       -> child: story-to-pr
-       -> child: code-review
-       -> child: qa
-       -> lifecycle report
-  -> exits
-next tick observes the lifecycle result and updates the ticket
-```
+## 1. Bounded In-Conversation Delegation
 
-Backlog-level orchestration outside, lifecycle-level orchestration inside.
-This is exactly how a continuously running software factory is shaped: the
-[ohtv-workflow plugin](https://github.com/jpshackelford/.openhands/tree/main/plugins/ohtv-workflow)
-is the polling loop in production, and the
-[sdlc-automation-github-demo](https://github.com/rajshah4/sdlc-automation-github-demo)
-is the parent-child factory in production.
+The OpenHands SDK's
+[TaskToolSet](https://docs.openhands.dev/sdk/guides/task-tool-set) lets a parent
+agent launch a specialized subagent as a tool call inside its conversation. The
+parent waits for the result and can resume the subagent later by task ID.
+Specializations such as a reviewer, test planner, or domain expert register
+with `register_agent()`.
 
-## The Third Option: No Orchestrator At All
-
-Parent-child and polling both keep an orchestrator. **Event-driven handoff**
-removes it: each agent finishes by changing the system of record (a push, a
-label, a ticket transition), and that change triggers the next agent through
-an automation or webhook.
-
-| Pattern | Who advances the work |
-| --- | --- |
-| Parent-child | A live parent |
-| Polling loop | A scheduled tick |
-| Event-driven handoff | The event itself |
-
-Use it when the workflow is already expressed in a system of record and every
-step has a natural trigger. The production example is the GitHub-label path in
-the sdlc demo; see the README's Pattern 3 section for how this repo's linear
-pipeline demos map onto it.
-
-## Subagents: Delegation Inside One Conversation
-
-The three patterns coordinate work *across* conversations. The OpenHands SDK's
-[TaskToolSet](https://docs.openhands.dev/sdk/guides/task-tool-set) adds a
-smaller delegation unit below that level: a parent agent launches a
-specialized **subagent** as a tool call inside its own conversation. The
-subagent runs synchronously - the parent blocks until it finishes and returns
-a `TaskObservation` with the result text - and it can be resumed later by task
-id with its full conversation history reloaded. Beyond the general-purpose
-default, custom specializations (a code reviewer, a test planner, a domain
-expert) register with `register_agent()`.
-
-The shape is parent-child in miniature. What changes is the boundary:
-
-| | Subagent (TaskToolSet) | Child conversation (Pattern 1) |
-| --- | --- | --- |
-| Where it runs | Inside the parent's conversation and runtime | Its own conversation - own sandbox on Cloud/Enterprise |
-| Visibility | A tool call in the parent's event stream | A separate conversation URL you can open, watch, and audit |
-| Blocking | Synchronous - the parent blocks until the step's subagent calls return | The parent chooses when to wait and where to gate |
-| Context handoff | Prompt in, result text out; resumable by task id | Final-response contract (`status:` / `summary:` / `next_gate:`) |
-| Use when | Bounded expert help mid-task: review this diff, plan these tests, look up context | Lifecycle steps that need isolation, their own audit trail, or human gates between them |
-
-Use a subagent when an agent needs bounded expert help and can wait for the
-answer. Reach for full child conversations when visibility, separate
-sandboxes, or a customer-facing audit trail matter. The two compose: a
-Pattern 1 child (or a polling worker) can use subagents internally for its
-own lookups without the orchestrator ever knowing.
-
-That composition is one reason this repo still leads with multi-agent
-workflows instead of modeling everything as subagents. A full worker
-conversation can use subagents inside its own task - for example, a build
-worker might ask a reviewer or test planner subagent for help before it
-returns its final status. A TaskToolSet subagent, however, should be treated
-as a leaf delegate. In the OpenHands subagent model, the parent conversation
-owns the delegation layer; subagents are not the right boundary for recursive
-subagent orchestration.
+Use this approach when an agent needs bounded expert help and can wait for the
+answer. A TaskToolSet subagent should normally be a leaf delegate: the parent
+conversation owns the delegation layer.
 
 A related but different knob is
-[parallel tool execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution):
-setting `tool_concurrency_limit` on the `Agent` (default `1`, i.e.
-sequential; the feature is experimental) lets one agent step run several
-independent tool calls concurrently. On its own it is not an orchestration
-pattern - nothing about *who advances the work* changes. It matters here
-because a subagent launch is itself a tool call, so a parent with
-`tool_concurrency_limit > 1` can fan out several subagents in a single step
-and block until they all return. The safety caveat is the same as this repo's
-state rule below: tool calls (including subagents) that modify shared state
-or write the same files are not safe to run concurrently.
+[parallel tool execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution).
+`tool_concurrency_limit` defaults to `1`, so tool calls are sequential; increasing
+it enables experimental fan-out of independent subagent calls inside one agent
+step. The parent still blocks for results, so concurrency does not change who
+owns progress. Calls that modify shared state or the same files are not safe to
+run concurrently.
 
-## The State Question (Where Worker Output Goes)
+## 2. Bounded Supervised Lifecycle
 
-The most common adaptation mistake is assuming a worker's files are visible to
-the orchestrator. Whether they are depends on the runtime:
+A live supervisor starts first-class child conversations, waits for their final
+responses, validates small result contracts, and advances only when the next
+gate permits it. The supervisor may be deterministic application code or an
+agent conversation. Approach 2 is defined by one live owner managing first-class
+workers and gates, not by whether that owner uses a model. The runnable
+[parent-child controller](../patterns/parent-child/) demonstrates this shape.
 
-- **Separate sandboxes** (OpenHands Cloud/Enterprise conversations - the
-  default in this repo): a worker's local files are invisible to everyone
-  else. Durable output travels through the **final response** (parent-child) or
-  **the system of record** - git, tickets, labels (polling loop).
-- **Shared working tree** (local Agent Canvas, shared SDK workspace): workers
-  read and write the same directory. Files transfer directly, but runs are not
-  parallel-safe and mutate the real checkout.
+| Boundary | Approach 1 subagent | Approach 2 child conversation |
+| --- | --- | --- |
+| Identity | A tool call inside the parent's event stream | A separate conversation record and URL |
+| Blocking | The parent blocks until the subagent call returns | The supervisor chooses when to wait and gate |
+| Handoff | Prompt in, result text out; resumable by task ID | Final-response contract plus durable Git or ticket artifacts |
+| Placement | Normally the parent's runtime; worktrees may narrow file sharing | Shared, grouped, or isolated placement depending on backend configuration |
+| Use when | Bounded expert help inside one task | Lifecycle stages need visibility, separate histories, or human gates |
 
-The full write-up, learned the hard way, is in the sdlc repo's state-model
-sections:
-[shared working tree](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/docs/agent-canvas-dark-factory-demo.md)
-vs
-[separate sandboxes](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/docs/replicated-jira-delegated-factory-demo.md).
+A first-class conversation does not itself guarantee a separate sandbox.
+Conversation identity is an ownership and audit boundary; sandbox placement is
+a compute, filesystem, credential, timeout, and failure boundary.
 
-## Code or Model as the Decision-Maker
+## 3. Durable Asynchronous Workflow
 
-Independent of the pattern, the decision loop itself can be:
+Choose this approach when the logical workflow outlives every controller run.
+Tasks, attempts, active workers, results, gates, and the next permitted action
+must live in a durable system of record.
 
-- **Deterministic code** (this repo's scripts): cheap, reproducible, easy to
-  test. Right when the decision is mechanical - next pending task, gate on a
-  status string.
-- **An LLM following a skill** (ohtv's `/orchestrate`, the sdlc repo's parent
-  conversation): right when the state is natural language - issues written by
-  humans - and the decision needs judgment.
+### 3A. Reconciliation
 
-Start deterministic. Add the model where mechanical rules stop being enough.
+A temporary controller wakes, reads durable state, observes actual progress,
+takes one bounded convergent action, checkpoints, and exits. The next tick can
+recover after a crash because it reads external truth rather than relying on a
+previous process.
+
+Use reconciliation for a changing backlog, capacity management, retries, or
+conditions that need periodic observation. The runnable
+[polling controller](../patterns/polling/) is the smallest example. The
+project-specific
+[`ohtv-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/ohtv-workflow)
+and its generic successor,
+[`pr-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/pr-workflow),
+show issue-to-merge reconciliation with first-class worker conversations.
+[Vibe Manager](https://github.com/rbren/vibe-manager) is another larger example.
+
+### 3B. Event Handoff
+
+A bounded stage finishes by changing the system of record—a push, label, PR,
+ticket transition, or validated artifact. That event starts the next bounded
+stage through an automation or webhook. No controller spans the entire chain.
+
+Use event handoff when each stage has a natural external trigger. The
+[SDLC Automation Demo](https://github.com/rajshah4/sdlc-automation-github-demo)
+uses GitHub labels and PR events for build, review, and QA stages.
+
+A single event that merely starts one bounded Approach 1 or Approach 2 run does
+not become Approach 3. The workflow qualifies as Approach 3 when later runs
+must recover and continue the same durable lifecycle.
+
+## Compose the Approaches
+
+A durable backlog controller can start one bounded supervised lifecycle, whose
+workers use bounded subagents internally:
+
+```text
+Approach 3 reconciliation tick
+  -> observes ticket KAN-42 is ready
+  -> starts one Approach 2 lifecycle
+       -> implementation child
+            -> Approach 1 research subagent
+            -> Approach 1 test-planning subagent
+       -> review child
+       -> QA child
+  -> exits
+next tick observes the durable lifecycle result
+```
+
+The outer layer owns campaign progress. The middle layer owns one request. The
+inner layer owns one specialist task.
+
+## Choose Placement Separately
+
+Where workers run determines sharing and risk, not the orchestration approach:
+
+- **Shared working tree:** direct file handoff, fast, but coupled and not safe
+  for conflicting parallel writes.
+- **Git worktrees or isolated clones:** file isolation on a shared host; compute,
+  credentials, and failure scope may still be shared.
+- **Grouped managed conversations:** separate histories with shared runtime
+  capacity; grouping is not a security boundary.
+- **Isolated sandboxes:** strongest compute, credential, timeout, and failure
+  separation; code and evidence move through Git or another durable system.
+
+The SDLC demo records both a
+[shared-working-tree case study](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/docs/agent-canvas-dark-factory-demo.md)
+and a
+[separate-sandboxes case study](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/docs/replicated-jira-delegated-factory-demo.md).
+See [Execution Boundaries and Runtime Placement](../PATTERNS.md) for the full
+trade-off guide.
+
+## Choose State and Judgment Separately
+
+Conversation history helps an agent reason, but it should not be the only
+campaign record. Use final responses for bounded handoffs and a durable system
+such as automation KV, Git, GitHub, Jira, or an application database for work
+that must survive controller failure.
+
+Independent of approach, decisions may be:
+
+- **Deterministic code:** cheap, reproducible, and appropriate for mechanical
+  transitions such as the next pending task or a status gate.
+- **An LLM following a skill:** useful when state is natural language and the
+  decision requires interpretation.
+- **Hybrid:** a deterministic watcher invokes a model only when changed state
+  requires judgment.
+
+Start deterministic. Add model judgment where mechanical rules stop being
+enough.

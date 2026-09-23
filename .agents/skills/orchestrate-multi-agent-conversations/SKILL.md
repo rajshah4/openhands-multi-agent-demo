@@ -9,6 +9,18 @@ Design the execution boundary, control loop, and durable state separately.
 Build bounded, observable workflows whose correctness does not depend on an
 agent remembering campaign state.
 
+Choose the top-level ownership model first:
+
+1. **Bounded in-conversation delegation:** one parent run delegates specialist
+   work to subagents and waits.
+2. **Bounded supervised lifecycle:** one live supervisor manages first-class
+   child conversations and gates.
+3. **Durable asynchronous workflow:** external state survives temporary
+   controllers; reconciliation or event handoffs advance work.
+
+These approaches compose. They do not determine runtime placement, worker
+harness, trigger technology, or durable-state implementation.
+
 ## Follow The Workflow
 
 1. Read repository instructions and current OpenHands guidance before choosing
@@ -20,12 +32,13 @@ agent remembering campaign state.
    - trust and credential boundaries;
    - required conversation history and human handoff;
    - failure, retry, validation, and audit requirements.
-3. Read `references/architecture-patterns.md`. Choose one execution boundary,
-   one worker implementation, one control pattern, and one durable-state
-   boundary. Do not treat them as one decision.
+3. Read `references/architecture-patterns.md`. Choose one top-level approach,
+   one execution boundary, one worker implementation, one control mechanism,
+   and one durable-state boundary. Do not treat them as one decision.
 4. State the recommendation before implementing:
 
 ```text
+approach:
 execution:
 worker:
 control:

@@ -13,8 +13,8 @@ Agent Canvas exposes a different API than OpenHands Cloud/Enterprise:
 
 This module exposes the same function surface as `openhands_conversations.py`
 (`build_start_payload`, `start_worker`, `get_status`, `get_final`,
-`conversation_url`, `TERMINAL_EXECUTION_STATUSES`), so the pattern scripts can
-swap runtimes with a flag and stay otherwise identical.
+`conversation_url`, `TERMINAL_EXECUTION_STATUSES`), so the controller examples
+can swap runtimes with a flag and stay otherwise identical.
 
 Adapted from the live-validated helper in
 https://github.com/rajshah4/sdlc-automation-github-demo (agent-canvas/scripts/agent_canvas_delegate.py).

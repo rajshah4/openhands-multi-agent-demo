@@ -1,8 +1,8 @@
-# Pattern 1: Parent-Child
+# Approach 2: Bounded Supervised Lifecycle (Parent-Child)
 
-A live parent orchestrator runs a complete lifecycle of child conversations,
-**now**. The parent waits for each child; contrast with the
-[polling loop](../polling/), which never waits.
+A live supervisor runs a complete lifecycle of first-class child conversations
+**now**. The supervisor waits for each child; contrast with the durable
+[reconciliation loop](../polling/), which never waits.
 
 ```text
 request

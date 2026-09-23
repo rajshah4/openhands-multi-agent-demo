@@ -12,10 +12,11 @@ issues.labeled: openhands-implement-spec
   -> human review and merge
 ```
 
-The automation is a composition of existing patterns, not a fourth pattern:
-the GitHub label is an event-driven trigger, while `implement-spec` uses
-subagents inside the resulting parent conversation to work the ready frontier
-of a ticket dependency graph.
+This is event-triggered **Approach 1: bounded in-conversation delegation**. The
+GitHub label starts one bounded parent conversation, while `implement-spec`
+uses subagents to work the ready frontier of a ticket dependency graph. Because
+no later controller must recover and continue the same lifecycle, the trigger
+does not make it a durable Approach 3 workflow.
 
 ## Register On Rajistics
 
