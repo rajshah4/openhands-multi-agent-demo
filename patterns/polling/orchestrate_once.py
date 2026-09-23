@@ -30,9 +30,9 @@ Run ticks by hand to watch the state machine advance:
     python3 orchestrate_once.py --dry-run          # no API key: prints the decision + payload
 
 In production the tick runs on a schedule (cron automation) instead of a local
-loop - see the README. Pattern credit: the production reference is the
-ohtv-workflow plugin (github.com/jpshackelford/.openhands), which runs its own
-project this way with GitHub issues and labels as the durable state.
+loop - see the README. The project-specific ohtv-workflow plugin and its generic
+pr-workflow successor (github.com/jpshackelford/.openhands) use this shape with
+GitHub issues, pull requests, labels, and a worklog as durable state.
 """
 
 from __future__ import annotations

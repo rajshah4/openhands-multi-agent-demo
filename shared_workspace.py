@@ -17,7 +17,7 @@ Usage:
   export LLM_API_KEY="your-key"
   export ANTHROPIC_API_KEY="your-anthropic-key"
   export GEMINI_API_KEY="your-gemini-key"        # optional
-  python pipeline.py
+  python shared_workspace.py
 """
 
 import argparse

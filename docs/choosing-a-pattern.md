@@ -16,13 +16,19 @@ and storage technology are separate decisions.
 The approaches are composable. They are not runtime products and they do not
 imply a particular sandbox layout.
 
+| Approach | Typical horizon | Operational intuition | Idle cost |
+| --- | --- | --- | --- |
+| **1. Bounded delegation** | One specialist task | A parent calling an expert | Parent remains active while it waits |
+| **2. Supervised lifecycle** | One request, usually minutes to hours | A project manager advancing a checklist | Supervisor remains active through the lifecycle |
+| **3. Durable workflow** | A campaign, often hours to weeks | A thermostat, controller loop, or event chain | No controller process is required between ticks or handoffs |
+
 ## Decide in Two Questions
 
-### 1. Can one parent remain accountable until the request is complete?
+### 1. Must the logical workflow survive beyond any one controller run?
 
-- **No:** choose [Approach 3](#3-durable-asynchronous-workflow). External state
+- **Yes:** choose [Approach 3](#3-durable-asynchronous-workflow). External state
   must carry progress between controller runs.
-- **Yes:** continue to question 2.
+- **No:** continue to question 2.
 
 ### 2. Do workers need independent conversation identities and gates?
 
@@ -46,15 +52,19 @@ conversation owns the delegation layer.
 
 A related but different knob is
 [parallel tool execution](https://docs.openhands.dev/sdk/guides/parallel-tool-execution).
-Increasing `tool_concurrency_limit` can fan out independent subagent tool calls,
-but it does not change who owns progress. Calls that modify shared state or the
-same files are not safe to run concurrently.
+`tool_concurrency_limit` defaults to `1`, so tool calls are sequential; increasing
+it enables experimental fan-out of independent subagent calls inside one agent
+step. The parent still blocks for results, so concurrency does not change who
+owns progress. Calls that modify shared state or the same files are not safe to
+run concurrently.
 
 ## 2. Bounded Supervised Lifecycle
 
 A live supervisor starts first-class child conversations, waits for their final
 responses, validates small result contracts, and advances only when the next
-gate permits it. The runnable
+gate permits it. The supervisor may be deterministic application code or an
+agent conversation. Approach 2 is defined by one live owner managing first-class
+workers and gates, not by whether that owner uses a model. The runnable
 [parent-child controller](../patterns/parent-child/) demonstrates this shape.
 
 | Boundary | Approach 1 subagent | Approach 2 child conversation |
@@ -85,9 +95,12 @@ previous process.
 Use reconciliation for a changing backlog, capacity management, retries, or
 conditions that need periodic observation. The runnable
 [polling controller](../patterns/polling/) is the smallest example. The
-[ohtv-workflow plugin](https://github.com/jpshackelford/.openhands/tree/main/plugins/ohtv-workflow)
-and [Vibe Manager](https://github.com/rbren/vibe-manager) are larger examples
-with first-class worker conversations.
+project-specific
+[`ohtv-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/ohtv-workflow)
+and its generic successor,
+[`pr-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/pr-workflow),
+show issue-to-merge reconciliation with first-class worker conversations.
+[Vibe Manager](https://github.com/rbren/vibe-manager) is another larger example.
 
 ### 3B. Event Handoff
 
@@ -137,6 +150,10 @@ Where workers run determines sharing and risk, not the orchestration approach:
 - **Isolated sandboxes:** strongest compute, credential, timeout, and failure
   separation; code and evidence move through Git or another durable system.
 
+The SDLC demo records both a
+[shared-working-tree case study](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/docs/agent-canvas-dark-factory-demo.md)
+and a
+[separate-sandboxes case study](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/docs/replicated-jira-delegated-factory-demo.md).
 See [Execution Boundaries and Runtime Placement](../PATTERNS.md) for the full
 trade-off guide.
 

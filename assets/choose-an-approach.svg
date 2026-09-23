@@ -36,8 +36,8 @@
     <rect x="451" y="216" width="698" height="118" rx="28" fill="#17223a"/>
     <circle cx="501" cy="275" r="23" fill="#ff766c"/>
     <text x="501" y="282" text-anchor="middle" class="body" fill="#fff" font-size="17" font-weight="800">1</text>
-    <text x="541" y="267" class="body" fill="#fff" font-size="22" font-weight="700">Can one parent remain accountable</text>
-    <text x="541" y="296" class="body" fill="#fff" font-size="22" font-weight="700">until this request is complete?</text>
+    <text x="541" y="267" class="body" fill="#fff" font-size="22" font-weight="700">Must this workflow survive beyond</text>
+    <text x="541" y="296" class="body" fill="#fff" font-size="22" font-weight="700">any one controller run?</text>
   </g>
 
   <!-- split -->
@@ -45,9 +45,9 @@
   <path d="M800 394h422v53" fill="none" stroke="#24324a" stroke-width="2" marker-end="url(#arrow)"/>
   <g class="body">
     <rect x="384" y="374" width="102" height="34" rx="17" fill="#dce7f7"/>
-    <text x="435" y="396" text-anchor="middle" fill="#315e9c" font-size="13" font-weight="800">YES · BOUNDED</text>
-    <rect x="1172" y="374" width="100" height="34" rx="17" fill="#fff0c8"/>
-    <text x="1222" y="396" text-anchor="middle" fill="#8d6500" font-size="13" font-weight="800">NO · DURABLE</text>
+    <text x="435" y="396" text-anchor="middle" fill="#315e9c" font-size="13" font-weight="800">NO · BOUNDED</text>
+    <rect x="1166" y="374" width="112" height="34" rx="17" fill="#fff0c8"/>
+    <text x="1222" y="396" text-anchor="middle" fill="#8d6500" font-size="13" font-weight="800">YES · DURABLE</text>
   </g>
 
   <!-- Question 2 -->
@@ -81,7 +81,7 @@
 
     <text x="495" y="729" class="eyebrow" fill="#21796f">APPROACH 2</text>
     <text x="495" y="766" class="display ink" font-size="20">Bounded supervised lifecycle</text>
-    <text x="495" y="796" class="muted" font-size="14">A live parent manages visible</text>
+    <text x="495" y="796" class="muted" font-size="14">A live supervisor manages visible</text>
     <text x="495" y="818" class="muted" font-size="14">child conversations and gates.</text>
 
     <text x="896" y="503" class="eyebrow" fill="#9a7000">APPROACH 3</text>

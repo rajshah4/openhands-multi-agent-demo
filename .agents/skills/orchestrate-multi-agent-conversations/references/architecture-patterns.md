@@ -24,7 +24,6 @@ A durable workflow can start a supervised lifecycle, and a supervised worker
 can use bounded subagents. The approach names the ownership horizon; it does not
 choose placement, harness, trigger, or storage technology.
 
-
 ## Separate The Decisions
 
 Make four independent choices:

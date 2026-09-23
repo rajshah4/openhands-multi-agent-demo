@@ -23,7 +23,6 @@ The approaches compose. A durable workflow may start one supervised lifecycle,
 and any first-class worker may use bounded subagents internally. After choosing
 the ownership model, make the execution, control, and state decisions below.
 
-
 ## Separate Three Decisions
 
 Design these layers independently:
@@ -55,15 +54,16 @@ read workflow state
 Use SDK subagents when one bounded task needs a few trusted specialists.
 
 - The parent owns the main task and delegates through `TaskToolSet`.
-- Independent task calls can run concurrently through the SDK's experimental
-  `tool_concurrency_limit`; dependent work should remain ordered.
+- `tool_concurrency_limit` defaults to `1`; increasing this experimental setting
+  lets independent task calls run concurrently, while dependent work should
+  remain ordered.
 - The parent and subagents share a runtime, filesystem, credentials, timeout,
   and failure scope.
 - Each subagent can keep task-specific history, but it is not a separate
   top-level ownership or service-level boundary.
 - Keep top-level queue ownership outside subagent calls.
 
-Implementation:
+Implementation: the native `TaskToolSet` path in
 [`shared_workspace.py`](shared_workspace.py)
 
 ### Isolated Enterprise conversations

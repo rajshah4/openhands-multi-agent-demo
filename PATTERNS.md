@@ -79,8 +79,9 @@ one process or sandbox
 [`shared_workspace.py`](shared_workspace.py) demonstrates two application
 paths in one workspace:
 
-- native `TaskToolSet` subagents inside one parent conversation
-- application-controlled ACP-backed SDK conversations
+- Approach 1 native `TaskToolSet` subagents inside one parent conversation
+- an application-controlled Approach 2 pipeline with ACP-backed SDK
+  conversations; its final review conversation nests Approach 1 delegation
 
 ### Advantages
 
@@ -98,7 +99,9 @@ paths in one workspace:
 
 Use this placement for prototypes, sequential pipelines, and tightly trusted
 specialists. Add a stronger boundary before crossing trust or credential
-boundaries.
+boundaries. The SDLC demo's
+[shared-working-tree case study](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/docs/agent-canvas-dark-factory-demo.md)
+records this trade-off in a larger workflow.
 
 ## Git Worktrees or Isolated Clones
 
@@ -187,6 +190,9 @@ Git handoff. Default placement follows the deployment configuration. When exact
 isolation is required, use the explicit create, prepare, attach, and cleanup
 helpers in
 [`patterns/common/openhands_conversations.py`](patterns/common/openhands_conversations.py).
+The SDLC demo's
+[separate-sandboxes case study](https://github.com/rajshah4/sdlc-automation-github-demo/blob/main/docs/replicated-jira-delegated-factory-demo.md)
+shows this placement in a larger delegated workflow.
 
 ### Advantages
 

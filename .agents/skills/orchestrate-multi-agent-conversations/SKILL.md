@@ -21,7 +21,6 @@ Choose the top-level ownership model first:
 These approaches compose. They do not determine runtime placement, worker
 harness, trigger technology, or durable-state implementation.
 
-
 ## Follow The Workflow
 
 1. Read repository instructions and current OpenHands guidance before choosing

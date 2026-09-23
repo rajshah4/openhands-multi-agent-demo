@@ -126,6 +126,54 @@ def test_canonical_approaches_are_consistent() -> None:
     assert (ROOT / "assets" / "choose-an-approach.svg").exists()
 
 
+def test_chooser_uses_controller_survival_as_the_durability_gate() -> None:
+    chooser = (ROOT / "docs" / "choosing-a-pattern.md").read_text(encoding="utf-8")
+    svg = (ROOT / "assets" / "choose-an-approach.svg").read_text(encoding="utf-8")
+    decision = chooser.split("## Decide in Two Questions", 1)[1].split(
+        "## 1. Bounded In-Conversation Delegation", 1
+    )[0]
+
+    assert "Must the logical workflow survive beyond any one controller run?" in decision
+    assert "**Yes:** choose [Approach 3]" in decision
+    assert "**No:** continue to question 2" in decision
+    assert "Can one parent remain accountable" not in chooser
+    assert "Must this workflow survive beyond" in svg
+    assert "any one controller run?" in svg
+    assert "YES · DURABLE" in svg
+    assert "NO · BOUNDED" in svg
+    assert "YES · BOUNDED" not in svg
+    assert "NO · DURABLE" not in svg
+
+
+def test_shared_workspace_paths_have_distinct_approach_classifications() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    placement = (ROOT / "PATTERNS.md").read_text(encoding="utf-8")
+    delegation = readme.split("## 1. Bounded In-Conversation Delegation", 1)[1].split(
+        "## 2. Bounded Supervised Lifecycle", 1
+    )[0]
+
+    assert "native delegation path" in delegation
+    assert "outer pipeline is Approach 2 with" in delegation
+    assert "review conversation nests Approach 1" in delegation
+    assert "Approach 1 native `TaskToolSet` subagents" in placement
+    assert "application-controlled Approach 2 pipeline" in placement
+
+
+def test_supervisor_forms_and_workflow_plugin_lineage_are_explicit() -> None:
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    chooser = (ROOT / "docs" / "choosing-a-pattern.md").read_text(encoding="utf-8")
+    polling = (ROOT / "patterns" / "polling" / "README.md").read_text(
+        encoding="utf-8"
+    )
+
+    for text in (readme, chooser):
+        normalized = " ".join(text.split())
+        assert "deterministic application code or an agent conversation" in normalized
+    for text in (readme, chooser, polling):
+        assert "ohtv-workflow" in text
+        assert "pr-workflow" in text
+        assert "generic successor" in text
+
 
 def test_best_practices_has_neurogolf_operating_lessons() -> None:
     text = (ROOT / "BEST_PRACTICES.md").read_text(encoding="utf-8")

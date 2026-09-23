@@ -15,7 +15,7 @@ identity, not by product name or sandbox placement:
 
 | Approach | Start here when | Working example |
 | --- | --- | --- |
-| [1. Bounded in-conversation delegation](#1-bounded-in-conversation-delegation) | One parent run needs bounded specialist help and can wait for the result. | [`shared_workspace.py`](shared_workspace.py) |
+| [1. Bounded in-conversation delegation](#1-bounded-in-conversation-delegation) | One parent run needs bounded specialist help and can wait for the result. | [`shared_workspace.py`](shared_workspace.py), native `TaskToolSet` path |
 | [2. Bounded supervised lifecycle](#2-bounded-supervised-lifecycle) | One request needs an accountable supervisor plus separately visible workers and gates. | [`patterns/parent-child`](patterns/parent-child/) |
 | [3. Durable asynchronous workflow](#3-durable-asynchronous-workflow) | Progress spans controller runs or waits for CI, external systems, or people. | [`patterns/polling`](patterns/polling/) |
 
@@ -86,8 +86,10 @@ finish.
 [`shared_workspace.py`](shared_workspace.py) includes a native delegation path
 through `TaskToolSet`, which is the direct example of this approach. The same
 file also demonstrates an application-controlled ACP pipeline using multiple
-SDK `Conversation` objects in one workspace. That path shares placement and
-files, but it should not be confused with native subagent identity.
+SDK `Conversation` objects in sequence. That outer pipeline is Approach 2 with
+shared workspace placement; its final review conversation nests Approach 1
+`TaskToolSet` delegation. Shared files do not make separate conversations into
+native subagents.
 
 The SDK also supports:
 
@@ -117,7 +119,9 @@ records, independently chosen runtimes, or human checkpoints between stages.
 A live supervisor owns one bounded request. It breaks the request into focused
 assignments, starts first-class worker conversations, observes their status,
 validates their output contracts, applies gates, and publishes a lifecycle
-report.
+report. The supervisor may be deterministic application code or an agent
+conversation; Approach 2 is defined by live lifecycle ownership, not by whether
+the owner uses a model.
 
 **Use it when:** workers need separate histories, visible conversation links,
 clean execution environments, different credentials, or human checkpoints
@@ -220,7 +224,7 @@ The decision-maker can be deterministic code, an LLM, or a hybrid:
 | Example | Trigger and decision loop | Durable state | Useful lesson |
 | --- | --- | --- | --- |
 | [`patterns/polling`](patterns/polling/) | A deterministic Python tick | Local files in the teaching example | The smallest restartable controller |
-| [LXA](https://github.com/jpshackelford/lxa) with [`pr-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/pr-workflow) | A scheduled OpenHands orchestrator reads GitHub and `WORKLOG.md`, dispatches workers, and auto-disables after quiet periods | GitHub plus a Git-backed worklog | Put LLM judgment in the controller when issues and reviews require interpretation |
+| [`pr-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/pr-workflow), the generic successor to project-specific [`ohtv-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/ohtv-workflow) | A scheduled OpenHands orchestrator reads GitHub and `WORKLOG.md`, dispatches workers, and auto-disables after quiet periods | GitHub plus a Git-backed worklog | Put LLM judgment in the controller when issues and reviews require interpretation |
 | [Vibe Manager](https://github.com/rbren/vibe-manager) | A one-minute deterministic watcher fingerprints Kanban and conversation state; it starts an LLM manager only when an actionable change needs judgment | SQLite Kanban state plus automation KV | Keep frequent observation cheap and invoke the model conditionally |
 
 ### 3B. Event Handoff
@@ -387,7 +391,8 @@ qualification.
 | [SDLC Automation Demo](https://github.com/rajshah4/sdlc-automation-github-demo) | Approach 3B GitHub event handoffs plus Approach 2 parent-child build, review, and QA variants |
 | [Agent Canvas SDLC Starter](https://github.com/rajshah4/agent-canvas-sdlc-starter) | An Approach 2 local supervisor with visible implementation, review, and QA conversations |
 | [OpenHands Agent Research Lab](https://github.com/rajshah4/openhands-agent-research-lab) | Approach 3 reconciliation experiments, placement evidence, durable attempts, and deterministic validation |
-| [LXA](https://github.com/jpshackelford/lxa) with [`pr-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/pr-workflow) | Approach 3A scheduled repository reconciliation using GitHub and a Git-backed worklog |
+| [`pr-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/pr-workflow) | Generic Approach 3A repository reconciliation using GitHub and a Git-backed worklog; it succeeds the project-specific [`ohtv-workflow`](https://github.com/jpshackelford/.openhands/tree/main/plugins/ohtv-workflow) plugin |
+| [LXA](https://github.com/jpshackelford/lxa) | Separate long-execution and PR-refinement tooling that uses fresh conversations plus design and journal artifacts |
 | [Vibe Manager](https://github.com/rbren/vibe-manager) | Approach 3A deterministic polling that conditionally invokes an LLM manager over Kanban and conversation state |
 
 ## Reuse the Orchestration Skill
@@ -413,7 +418,7 @@ patterns/
 automations/
   implement-approved-spec/  Event-triggered Approach 1 delegation
 
-shared_workspace.py     Approach 1 subagents plus an ACP SDK pipeline
+shared_workspace.py     Approach 1 native path plus shared-placement Approach 2 ACP pipeline
 cloud_conversations.py  Approach 2 with managed conversations and Git handoff
 PATTERNS.md             Execution boundaries and runtime placement
 BEST_PRACTICES.md       State, recovery, validation, capacity, and cleanup
@@ -432,3 +437,7 @@ tests/                  Offline tests for the example controllers
 - [Agent Canvas and ACP](docs/agent-canvas-and-acp.md)
 - [OpenHands Software Agent SDK](https://docs.openhands.dev/sdk/)
 - [Reusable orchestration skill](.agents/skills/orchestrate-multi-agent-conversations/)
+
+The existing `PATTERNS.md` and `docs/choosing-a-pattern.md` paths are retained to
+avoid breaking external links; their titles and content use the canonical
+approach and placement terminology.
