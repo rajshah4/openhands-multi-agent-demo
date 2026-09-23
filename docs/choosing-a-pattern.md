@@ -30,12 +30,13 @@ imply a particular sandbox layout.
   must carry progress between controller runs.
 - **No:** continue to question 2.
 
-### 2. Do workers need independent conversation identities and gates?
+### 2. Do workers need their own conversation records?
 
 - **No:** choose [Approach 1](#1-bounded-in-conversation-delegation). Delegate
   bounded specialist work inside the parent conversation.
 - **Yes:** choose [Approach 2](#2-bounded-supervised-lifecycle). Keep one live
-  supervisor and create first-class child conversations.
+  supervisor and create first-class child conversations; add gates where the
+  lifecycle needs them.
 
 ## 1. Bounded In-Conversation Delegation
 

@@ -67,8 +67,10 @@ def test_getting_started_has_quick_start_and_deeper_guidance() -> None:
     assert offsets == sorted(offsets)
     assert "python3 orchestrate_once.py --dry-run" in text
     assert "python3 run_supervisor.py --dry-run" in text
-    assert "**Execution**" in text
     assert "**Coordination**" in text
+    assert "**Worker identity**" in text
+    assert "**Runtime placement**" in text
+    assert "**Worker implementation**" in text
     assert "**Workflow state**" in text
     assert "conversation" in text and "sandbox" in text
     assert "automation" in text and "durable state" in text
@@ -137,12 +139,14 @@ def test_chooser_uses_controller_survival_as_the_durability_gate() -> None:
     assert "**Yes:** choose [Approach 3]" in decision
     assert "**No:** continue to question 2" in decision
     assert "Can one parent remain accountable" not in chooser
-    assert "Must this workflow survive beyond" in svg
-    assert "any one controller run?" in svg
+    assert "Must a later controller resume this workflow" in svg
+    assert "after this run ends?" in svg
     assert "YES · DURABLE" in svg
     assert "NO · BOUNDED" in svg
     assert "YES · BOUNDED" not in svg
     assert "NO · DURABLE" not in svg
+    assert "Do workers need their own conversation records?" in chooser
+    assert "conversation records?" in svg
 
 
 def test_shared_workspace_paths_have_distinct_approach_classifications() -> None:

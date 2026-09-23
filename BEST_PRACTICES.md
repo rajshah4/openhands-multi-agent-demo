@@ -16,7 +16,7 @@ Use controller lifetime and worker identity to select the top-level approach:
 | Approach | Ownership model | Use when |
 | --- | --- | --- |
 | **1. Bounded in-conversation delegation** | One parent conversation delegates to subagents and waits | A bounded request needs specialist help inside one parent run |
-| **2. Bounded supervised lifecycle** | One live supervisor manages first-class child conversations and gates | One bounded request needs visible workers, separate histories, or checkpoints |
+| **2. Bounded supervised lifecycle** | One live supervisor manages first-class child conversations and gates | One bounded request needs visible workers or separate conversation histories |
 | **3. Durable asynchronous workflow** | External state survives temporary controllers; reconciliation or events advance work | Progress spans runs, CI, systems, or human decisions |
 
 The approaches compose. A durable workflow may start one supervised lifecycle,

@@ -17,7 +17,7 @@ identity, not by product name or sandbox placement:
 | --- | --- | --- |
 | [1. Bounded in-conversation delegation](#1-bounded-in-conversation-delegation) | One parent run needs bounded specialist help and can wait for the result. | [`shared_workspace.py`](shared_workspace.py), native `TaskToolSet` path |
 | [2. Bounded supervised lifecycle](#2-bounded-supervised-lifecycle) | One request needs an accountable supervisor plus separately visible workers and gates. | [`patterns/parent-child`](patterns/parent-child/) |
-| [3. Durable asynchronous workflow](#3-durable-asynchronous-workflow) | Progress spans controller runs or waits for CI, external systems, or people. | [`patterns/polling`](patterns/polling/) |
+| [3. Durable asynchronous workflow](#3-durable-asynchronous-workflow) | The same workflow must resume after any one controller run ends. | [`patterns/polling`](patterns/polling/) |
 
 ![Three approaches to coordinating OpenHands agents](assets/three-approaches.svg)
 
@@ -43,14 +43,15 @@ decision guide.
 
 ## The Core Model
 
-Do not choose a multi-agent architecture as one indivisible bundle. Make three
-separate decisions:
+Choose how progress is owned, then make the other decisions separately:
 
 | Decision | Question | Typical choices |
 | --- | --- | --- |
-| **Execution** | What do workers share: filesystem, credentials, compute, timeout, and failures? | SDK subagents, shared or isolated worktrees, grouped conversations, isolated conversations |
 | **Coordination** | Who observes progress and decides what happens next? | Parent run, live supervisor, scheduled reconciler, event handoff, persistent service |
-| **Workflow state** | Where do tasks, attempts, active workers, results, and gates survive? | Parent history, automation KV, files and Git, GitHub or Jira, application database |
+| **Worker identity** | Does each worker need its own conversation record? | Subagent task inside a parent, first-class conversation |
+| **Runtime placement** | What do workers share: files, credentials, compute, timeout, and failures? | Shared workspace, Git worktrees, grouped sandbox, isolated sandbox |
+| **Worker implementation** | Which harness performs the assignment? | Native OpenHands agent, coding-agent CLI, ACP-backed profile |
+| **Workflow state** | Where do tasks, attempts, active workers, results, and gates survive? | Parent history, automation KV, Git, GitHub or Jira, application database |
 
 A **conversation** is an ownership, history, and audit boundary. A **sandbox**
 is a compute, filesystem, credential, and failure boundary. Creating a new
@@ -123,9 +124,10 @@ report. The supervisor may be deterministic application code or an agent
 conversation; Approach 2 is defined by live lifecycle ownership, not by whether
 the owner uses a model.
 
-**Use it when:** workers need separate histories, visible conversation links,
-clean execution environments, different credentials, or human checkpoints
-between stages—and one parent can remain active for the bounded lifecycle.
+**Use it when:** a bounded request needs workers with their own conversation
+records, visible links, or independently managed stages, and one supervisor can
+remain active for the lifecycle. Choose runtime placement separately when workers
+also need different environments or credentials.
 
 **Typical composition:**
 
@@ -181,9 +183,9 @@ A durable workflow outlives every controller invocation. External state records
 what exists, what is active, what completed, and what may happen next. The
 controller can therefore stop while workers, CI, systems, or people continue.
 
-**Use it when:** work arrives continuously, spans hours or days, can wait
-between checks, or naturally advances through GitHub, Jira, a Kanban board, or
-another system of record.
+**Use it when:** the same workflow must continue after one controller run ends.
+This often happens with a continuing backlog or a process that advances through
+CI, GitHub, Jira, or human decisions across separate runs.
 
 **Typical composition:**
 

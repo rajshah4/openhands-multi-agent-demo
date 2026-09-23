@@ -1,111 +1,76 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
-  <title id="title">Decision guide for choosing a multi-agent approach</title>
-  <desc id="desc">A decision tree that separates bounded delegation, supervised child conversations, and durable asynchronous workflows.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1020" role="img" aria-labelledby="choose-an-approach-title choose-an-approach-desc">
+  <title id="choose-an-approach-title">Choose an orchestration approach</title>
+  <desc id="choose-an-approach-desc">If a later controller must resume the same workflow, use a durable workflow. Otherwise, use a supervised lifecycle when workers need their own conversation records, or bounded delegation when they do not.</desc>
   <defs>
-    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#f7f3ea"/>
-      <stop offset="1" stop-color="#ece7dc"/>
-    </linearGradient>
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="150%">
-      <feDropShadow dx="0" dy="9" stdDeviation="13" flood-color="#17223a" flood-opacity=".12"/>
-    </filter>
-    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
-      <path d="M1 1l7 4-7 4" fill="none" stroke="#24324a" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
-    </marker>
-    <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse">
-      <circle cx="2" cy="2" r="1" fill="#24324a" opacity=".08"/>
-    </pattern>
     <style>
-      .display{font-family:Georgia,"Times New Roman",serif;font-weight:700;letter-spacing:-1px}
-      .body{font-family:"Avenir Next","Segoe UI",sans-serif}
-      .eyebrow{font-family:"Avenir Next","Segoe UI",sans-serif;font-size:13px;font-weight:800;letter-spacing:1.8px}
-      .ink{fill:#17223a}.muted{fill:#637086}
+      .sans{font-family:"Avenir Next","Segoe UI",Arial,sans-serif}
+      .serif{font-family:Georgia,"Times New Roman",serif;font-weight:700}
+      .ink{fill:#17223a}.muted{fill:#52627a}
+      .label{font-size:16px;font-weight:800;letter-spacing:1px}
     </style>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+      <path d="M1 1l7 3.5-7 3.5" fill="none" stroke="#34445c" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
   </defs>
-  <rect width="1600" height="900" fill="url(#paper)"/>
-  <rect width="1600" height="900" fill="url(#dots)"/>
-  <rect x="0" y="0" width="18" height="900" fill="#ff766c"/>
-  <g class="body">
-    <text x="75" y="72" class="eyebrow" fill="#476fa8">A TWO-QUESTION DECISION</text>
-    <text x="75" y="128" class="display ink" font-size="46">Which control boundary do you need?</text>
-    <text x="75" y="167" class="muted" font-size="18">Start with controller lifetime. Then choose whether worker identity must be independently visible.</text>
-  </g>
+  <rect width="1200" height="1020" fill="#f7f3ea"/>
+  <rect x="0" y="0" width="14" height="1020" fill="#ff766c"/>
+  <text x="58" y="61" class="sans label" fill="#426aa4">A TWO-QUESTION DECISION</text>
+  <text x="58" y="113" class="serif ink" font-size="44">Which control boundary do you need?</text>
+  <text x="58" y="153" class="sans muted" font-size="19">Choose by recovery first, then by worker identity.</text>
 
-  <!-- Question 1 -->
-  <g filter="url(#soft)">
-    <rect x="451" y="216" width="698" height="118" rx="28" fill="#17223a"/>
-    <circle cx="501" cy="275" r="23" fill="#ff766c"/>
-    <text x="501" y="282" text-anchor="middle" class="body" fill="#fff" font-size="17" font-weight="800">1</text>
-    <text x="541" y="267" class="body" fill="#fff" font-size="22" font-weight="700">Must this workflow survive beyond</text>
-    <text x="541" y="296" class="body" fill="#fff" font-size="22" font-weight="700">any one controller run?</text>
-  </g>
+  <rect x="205" y="194" width="790" height="108" rx="16" fill="#17223a"/>
+  <circle cx="251" cy="248" r="23" fill="#ff766c"/>
+  <text x="251" y="255" text-anchor="middle" class="sans" fill="#fff" font-size="20" font-weight="800">1</text>
+  <text x="293" y="239" class="sans" fill="#fff" font-size="25" font-weight="700">Must a later controller resume this workflow</text>
+  <text x="293" y="271" class="sans" fill="#fff" font-size="25" font-weight="700">after this run ends?</text>
 
-  <!-- split -->
-  <path d="M800 334v60H434v53" fill="none" stroke="#24324a" stroke-width="2" marker-end="url(#arrow)"/>
-  <path d="M800 394h422v53" fill="none" stroke="#24324a" stroke-width="2" marker-end="url(#arrow)"/>
-  <g class="body">
-    <rect x="384" y="374" width="102" height="34" rx="17" fill="#dce7f7"/>
-    <text x="435" y="396" text-anchor="middle" fill="#315e9c" font-size="13" font-weight="800">NO · BOUNDED</text>
-    <rect x="1166" y="374" width="112" height="34" rx="17" fill="#fff0c8"/>
-    <text x="1222" y="396" text-anchor="middle" fill="#8d6500" font-size="13" font-weight="800">YES · DURABLE</text>
-  </g>
+  <path d="M600 302v59H325v42" fill="none" stroke="#34445c" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <path d="M600 361h280v42" fill="none" stroke="#34445c" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <rect x="261" y="338" width="128" height="37" rx="18" fill="#dce7f7"/>
+  <text x="325" y="362" text-anchor="middle" class="sans label" fill="#315e9c">NO · BOUNDED</text>
+  <rect x="817" y="338" width="126" height="37" rx="18" fill="#fff0c8"/>
+  <text x="880" y="362" text-anchor="middle" class="sans label" fill="#8d6500">YES · DURABLE</text>
 
-  <!-- Question 2 -->
-  <g filter="url(#soft)">
-    <rect x="114" y="458" width="642" height="112" rx="26" fill="#ffffff" stroke="#cad1da"/>
-    <circle cx="164" cy="514" r="23" fill="#5b8def"/>
-    <text x="164" y="521" text-anchor="middle" class="body" fill="#fff" font-size="17" font-weight="800">2</text>
-    <text x="205" y="505" class="body ink" font-size="20" font-weight="700">Do workers need independent</text>
-    <text x="205" y="533" class="body ink" font-size="20" font-weight="700">conversation identities and gates?</text>
-  </g>
+  <rect x="58" y="419" width="534" height="112" rx="16" fill="#fff" stroke="#aebacc" stroke-width="2"/>
+  <circle cx="102" cy="475" r="23" fill="#5b8def"/>
+  <text x="102" y="482" text-anchor="middle" class="sans" fill="#fff" font-size="20" font-weight="800">2</text>
+  <text x="141" y="466" class="sans ink" font-size="23" font-weight="700">Do workers need their own</text>
+  <text x="141" y="497" class="sans ink" font-size="23" font-weight="700">conversation records?</text>
 
-  <path d="M435 570v70H264v44" fill="none" stroke="#24324a" stroke-width="2" marker-end="url(#arrow)"/>
-  <path d="M435 640h344v44" fill="none" stroke="#24324a" stroke-width="2" marker-end="url(#arrow)"/>
-  <g class="body">
-    <text x="288" y="625" text-anchor="middle" fill="#315e9c" font-size="13" font-weight="800">NO</text>
-    <text x="749" y="625" text-anchor="middle" fill="#21796f" font-size="13" font-weight="800">YES</text>
-  </g>
+  <path d="M325 531v82H190v27" fill="none" stroke="#34445c" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <path d="M325 613h133v27" fill="none" stroke="#34445c" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <text x="190" y="604" text-anchor="middle" class="sans label" fill="#315e9c">NO</text>
+  <text x="458" y="604" text-anchor="middle" class="sans label" fill="#21796f">YES</text>
 
-  <!-- Outcomes -->
-  <g filter="url(#soft)">
-    <rect x="82" y="695" width="365" height="152" rx="25" fill="#e8effc" stroke="#9db8e8"/>
-    <rect x="469" y="695" width="365" height="152" rx="25" fill="#e2f3ef" stroke="#95d4c9"/>
-    <rect x="856" y="458" width="662" height="389" rx="28" fill="#fff7df" stroke="#e5c568"/>
-  </g>
+  <rect x="58" y="654" width="250" height="255" rx="16" fill="#e8effc" stroke="#9db8e8" stroke-width="2"/>
+  <text x="82" y="697" class="sans label" fill="#3f6ca9">APPROACH 1</text>
+  <text x="82" y="737" class="serif ink" font-size="21">Bounded delegation</text>
+  <text x="82" y="780" class="sans muted" font-size="19">Subagents work inside</text>
+  <text x="82" y="808" class="sans muted" font-size="19">one parent conversation.</text>
+  <text x="82" y="864" class="sans" fill="#315e9c" font-size="17" font-weight="700">TaskToolSet</text>
 
-  <g class="body">
-    <text x="108" y="729" class="eyebrow" fill="#3f6ca9">APPROACH 1</text>
-    <text x="108" y="766" class="display ink" font-size="20">Bounded in-conversation delegation</text>
-    <text x="108" y="796" class="muted" font-size="14">TaskToolSet subagents inside</text>
-    <text x="108" y="818" class="muted" font-size="14">one parent conversation.</text>
+  <rect x="332" y="654" width="260" height="255" rx="16" fill="#e2f3ef" stroke="#95d4c9" stroke-width="2"/>
+  <text x="356" y="697" class="sans label" fill="#21796f">APPROACH 2</text>
+  <text x="356" y="737" class="serif ink" font-size="21">Supervised lifecycle</text>
+  <text x="356" y="780" class="sans muted" font-size="19">One live supervisor;</text>
+  <text x="356" y="808" class="sans muted" font-size="19">separate conversations.</text>
+  <text x="356" y="864" class="sans" fill="#21796f" font-size="17" font-weight="700">Add gates as needed</text>
 
-    <text x="495" y="729" class="eyebrow" fill="#21796f">APPROACH 2</text>
-    <text x="495" y="766" class="display ink" font-size="20">Bounded supervised lifecycle</text>
-    <text x="495" y="796" class="muted" font-size="14">A live supervisor manages visible</text>
-    <text x="495" y="818" class="muted" font-size="14">child conversations and gates.</text>
+  <rect x="620" y="419" width="522" height="490" rx="16" fill="#fff7df" stroke="#e5c568" stroke-width="2"/>
+  <text x="648" y="462" class="sans label" fill="#9a7000">APPROACH 3</text>
+  <text x="648" y="503" class="serif ink" font-size="28">Durable asynchronous workflow</text>
+  <text x="648" y="549" class="sans muted" font-size="19">External state carries progress across runs.</text>
+  <line x1="648" y1="578" x2="1114" y2="578" stroke="#dbc787" stroke-width="2"/>
 
-    <text x="896" y="503" class="eyebrow" fill="#9a7000">APPROACH 3</text>
-    <text x="896" y="546" class="display ink" font-size="31">Durable asynchronous workflow</text>
-    <text x="896" y="581" class="muted" font-size="15">External state carries progress across controller runs.</text>
+  <rect x="648" y="608" width="466" height="116" rx="12" fill="#fffdfa"/>
+  <circle cx="676" cy="643" r="10" fill="#f2c14e"/>
+  <text x="700" y="651" class="sans ink" font-size="22" font-weight="800">3A · Reconciliation</text>
+  <text x="674" y="692" class="sans muted" font-size="18">A later tick reads state and takes the next action.</text>
 
-    <line x1="896" y1="612" x2="1478" y2="612" stroke="#dbc787"/>
-    <rect x="896" y="641" width="268" height="141" rx="20" fill="#fff" opacity=".68"/>
-    <circle cx="926" cy="673" r="10" fill="#f2c14e"/>
-    <text x="950" y="678" class="ink" font-size="16" font-weight="800">3A · Reconciliation</text>
-    <text x="918" y="711" class="muted" font-size="13.5">Scheduled ticks observe state,</text>
-    <text x="918" y="732" class="muted" font-size="13.5">take one action, checkpoint, exit.</text>
-    <text x="918" y="762" fill="#9a7000" font-size="12.5">Polling · Vibe Manager · campaigns</text>
+  <rect x="648" y="744" width="466" height="116" rx="12" fill="#fffdfa"/>
+  <circle cx="676" cy="779" r="10" fill="#ff766c"/>
+  <text x="700" y="787" class="sans ink" font-size="22" font-weight="800">3B · Event handoff</text>
+  <text x="674" y="828" class="sans muted" font-size="18">A stage changes the record; an event starts the next.</text>
 
-    <rect x="1183" y="641" width="295" height="141" rx="20" fill="#fff" opacity=".68"/>
-    <circle cx="1213" cy="673" r="10" fill="#ff766c"/>
-    <text x="1237" y="678" class="ink" font-size="16" font-weight="800">3B · Event handoff</text>
-    <text x="1205" y="711" class="muted" font-size="13.5">A completed stage changes the</text>
-    <text x="1205" y="732" class="muted" font-size="13.5">system of record and triggers next.</text>
-    <text x="1205" y="762" fill="#a74a43" font-size="12.5">GitHub label chain · webhooks</text>
-  </g>
-
-  <g class="body">
-    <text x="75" y="879" class="eyebrow" fill="#7b8492">PLACEMENT COMES LATER</text>
-    <text x="257" y="879" class="muted" font-size="13">shared workspace · Git worktree · grouped sandbox · isolated sandbox</text>
-  </g>
+  <text x="58" y="971" class="sans muted" font-size="18">Choose runtime placement and worker harness separately.</text>
 </svg>
