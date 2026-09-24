@@ -1,15 +1,15 @@
 # Orchestration Patterns
 
-Four ways to advance multi-agent work. Choose based on two questions:
+Three approaches to advance multi-agent work. Choose based on two questions:
 
-1. **Is the work one bounded request or an ongoing backlog?** A single request that should finish while someone watches → parent-child. A refilling backlog where work waits on slow externals → reconciliation loop.
-2. **Can anything hold state for the full duration?** If a single conversation or process can stay alive for the whole job → parent-child. If the job spans hours or days → durable state + reconciliation.
+1. **Must the logical workflow survive beyond any one controller run?** Yes → Approach 3 (durable workflow). No → continue to question 2.
+2. **Do workers need their own conversation records?** No → Approach 1 (bounded delegation). Yes → Approach 2 (supervised lifecycle).
 
-The patterns compose. A polling loop's worker can be an entire parent-child lifecycle. A parent-child child can use SDK subagents internally.
+The approaches compose. A durable workflow can launch a bounded supervised lifecycle, and any child conversation can use in-conversation delegation for smaller specialist tasks.
 
 ---
 
-## 1. SDK Orchestration (shared workspace)
+## Approach 1: Bounded In-Conversation Delegation (shared workspace)
 
 **Shape:** your Python application is the controller. It starts subagents, passes assignments, waits for results, validates them, and decides when to stop.
 
@@ -31,7 +31,7 @@ The same file demonstrates ACP workers: Claude Code implements, Gemini CLI tests
 
 ---
 
-## 2. Automations and Reconciliation (polling loop)
+## Approach 3A: Durable Asynchronous Workflow — Reconciliation (polling loop)
 
 **Shape:** a schedule or event starts a temporary controller. The controller reloads durable state, compares desired and actual progress, takes one bounded action, records what happened, and exits. A later run continues from the checkpoint.
 
@@ -65,7 +65,7 @@ The teaching example uses local files. Production automations running in ephemer
 
 ---
 
-## 3. Parent-Child Conversations
+## Approach 2: Bounded Supervised Lifecycle
 
 **Shape:** a live parent owns one bounded request. It breaks the request into focused assignments, starts first-class worker conversations, validates their output contracts, applies gates, and writes a lifecycle report.
 
@@ -97,7 +97,7 @@ Output appears in `runs/<run-id>/`: prompt, final response, and lifecycle report
 
 ---
 
-## 4. Event-Driven Handoff (no persistent orchestrator)
+## Approach 3B: Event-Driven Handoff (no persistent orchestrator)
 
 **Shape:** each agent finishes by changing the system of record — a push, a label, a ticket transition — and that change triggers the next agent through an automation or webhook. No orchestrator stays alive between stages.
 
@@ -120,12 +120,12 @@ The [SDLC Automation Demo](https://github.com/rajshah4/sdlc-automation-github-de
 
 ---
 
-## Composing the Patterns
+## Combining the Approaches
 
 ```
-scheduled reconciliation tick (pattern 2)
+Approach 3A reconciliation tick
   → observes ticket KAN-42 is ready
-  → starts one bounded parent-child lifecycle (pattern 3)
+  → starts one Approach 2 supervised lifecycle
       → implementation conversation
       → review conversation
       → QA conversation
@@ -137,7 +137,7 @@ next tick observes the lifecycle result and updates the ticket
 
 Backlog-level orchestration outside, lifecycle-level orchestration inside.
 
-An implementation child (in any pattern) can also use SDK subagents internally for bounded lookups — a build worker might call a reviewer subagent for help before returning its final status — without the campaign-level controller ever knowing.
+An implementation child (in any approach) can also use Approach 1 subagents internally for bounded lookups — a build worker might call a reviewer subagent for help before returning its final status — without the campaign-level controller ever knowing.
 
 ---
 

@@ -1,6 +1,6 @@
 # Quickstart
 
-Get any of the three demo patterns running in a few minutes.
+Get any of the three demo approaches running in a few minutes.
 
 ## Prerequisites
 
@@ -30,7 +30,7 @@ cd ../parent-child
 python3 run_supervisor.py --dry-run
 ```
 
-## 3. Run the Polling Loop (automations / reconciliation)
+## 3. Run the Polling Loop (Approach 3A — durable reconciliation)
 
 ```bash
 export OPENHANDS_API_KEY="your-key"
@@ -68,7 +68,7 @@ python3 run_supervisor.py --request "a Python function slugify(text) that conver
 
 When the run finishes, `runs/<run-id>/` contains a prompt and final response for each child conversation plus a `lifecycle-report.md` for human review.
 
-## 5. SDK Subagents in a Shared Workspace
+## 5. Approach 1: Bounded In-Conversation Delegation (shared workspace)
 
 ```bash
 export LLM_API_KEY="your-key"
@@ -109,6 +109,6 @@ export OPENHANDS_BASE_URL="https://openhands.your-company.com"
 
 ## Next Steps
 
-- [Core Concepts](concepts.md) — understand the three decisions before adapting the demos
+- [Core Concepts](concepts.md) — understand the five decisions before adapting the demos
 - [Orchestration Patterns](patterns.md) — when to use each pattern
 - [Working Examples](examples.md) — external reference projects

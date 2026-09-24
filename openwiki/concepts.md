@@ -1,16 +1,18 @@
 # Core Concepts
 
-Every multi-agent design in this repo rests on three independent decisions. Making them separately keeps the system understandable and adaptable.
+Every multi-agent design in this repo rests on five separate decisions. Making them independently keeps the system understandable and adaptable.
 
-## The Three Decisions
+## The Five Decisions
 
 | Decision | Question | Typical choices |
 |---|---|---|
-| **Execution** | What do workers share: filesystem, credentials, compute, timeout, and failures? | SDK subagents; isolated conversations; grouped conversations; Agent Canvas |
-| **Coordination** | Who observes progress and decides what happens next? | Application controller; live parent; scheduled reconciler; event handoff; persistent service |
-| **Workflow state** | Where do tasks, attempts, workers, results, and gates survive a restart? | Automation KV; files and Git; GitHub or Jira; application database |
+| **Coordination** | Who observes progress and decides what happens next? | Parent run; live supervisor; scheduled reconciler; event handoff; persistent service |
+| **Worker identity** | Does each worker need its own conversation record? | Subagent task inside a parent; first-class conversation |
+| **Runtime placement** | What do workers share: files, credentials, compute, timeout, and failures? | Shared workspace; Git worktrees; grouped sandbox; isolated sandbox |
+| **Worker implementation** | Which harness performs the assignment? | Native OpenHands agent; coding-agent CLI; ACP-backed profile |
+| **Workflow state** | Where do tasks, attempts, active workers, results, and gates survive? | Parent history; automation KV; Git; GitHub or Jira; application database |
 
-Do not choose these as a bundle. Keep a stable coordination contract and make execution and state replaceable.
+Choose how progress is owned (Coordination) first, then make the other decisions separately. Keep a stable coordination contract and make placement and state replaceable.
 
 The canonical controller loop regardless of pattern:
 

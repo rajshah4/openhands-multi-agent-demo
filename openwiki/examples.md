@@ -75,14 +75,14 @@ Apply the label `openhands-implement-spec` to a GitHub issue → an implementati
 
 ## External Reference Projects
 
-| Project | Pattern | What it demonstrates |
+| Project | Approach | What it demonstrates |
 |---|---|---|
-| [SDLC Automation Demo](https://github.com/rajshah4/sdlc-automation-github-demo) | Event-driven handoff + parent-child | GitHub-native build → review → QA pipeline; the production version of the event-driven pattern |
-| [Agent Canvas SDLC Starter](https://github.com/rajshah4/agent-canvas-sdlc-starter) | Parent-child on Canvas | Visual local supervisor with implementation, review, and QA conversations |
-| [OpenHands Agent Research Lab](https://github.com/rajshah4/openhands-agent-research-lab) | All patterns (experiments) | Bounded experiments, deterministic validation, durable attempts, evidence-backed memory |
-| [LXA](https://github.com/jpshackelford/lxa) | Polling loop (LLM decision loop) | Long-horizon SDK execution plus a GitHub-backed scheduled orchestrator with LLM judgment |
-| [Vibe Manager](https://github.com/rbren/vibe-manager) | Polling loop (hybrid) | Conditional LLM reconciliation over a continuously polled Kanban; invokes the model only when an actionable change needs judgment |
-| [ohtv-workflow plugin](https://github.com/jpshackelford/.openhands/tree/main/plugins/ohtv-workflow) | Polling loop (production) | Cron automation that reads GitHub issues/PRs/labels, dispatches parallel workers, appends worklog, auto-disables after quiet periods |
+| [SDLC Automation Demo](https://github.com/rajshah4/sdlc-automation-github-demo) | Approach 3B event handoffs + Approach 2 supervised lifecycle | GitHub-native build → review → QA pipeline; production event-driven implementation |
+| [Agent Canvas SDLC Starter](https://github.com/rajshah4/agent-canvas-sdlc-starter) | Approach 2 supervised lifecycle | Visual local supervisor with implementation, review, and QA conversations |
+| [OpenHands Agent Research Lab](https://github.com/rajshah4/openhands-agent-research-lab) | All approaches (experiments) | Bounded experiments, deterministic validation, durable attempts, placement evidence, evidence-backed memory |
+| [`pr-workflow` plugin](https://github.com/jpshackelford/.openhands/tree/main/plugins/pr-workflow) | Approach 3A reconciliation | Generic cron-driven repository reconciliation using GitHub and a Git-backed worklog; succeeds `ohtv-workflow` |
+| [LXA](https://github.com/jpshackelford/lxa) | Approach 3A (long-horizon) | Long-horizon SDK execution plus a GitHub-backed scheduled orchestrator with LLM judgment |
+| [Vibe Manager](https://github.com/rbren/vibe-manager) | Approach 3A (conditional LLM) | Deterministic polling that conditionally invokes an LLM manager only when an actionable change needs judgment |
 
 ---
 

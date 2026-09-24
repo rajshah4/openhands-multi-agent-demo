@@ -1,14 +1,14 @@
 # openhands-multi-agent-demo — Documentation
 
-Practical examples of coordinating multiple OpenHands agents. The examples focus on three decisions that determine whether a multi-agent system is reliable: where agents run, who observes progress and decides what happens next, and where workflow state survives across runs.
+Practical examples of coordinating multiple OpenHands agents. The examples focus on five decisions that determine whether a multi-agent system is reliable: coordination ownership, worker identity, runtime placement, worker implementation, and where workflow state survives across runs.
 
 ## Pages
 
 | Page | What it covers |
 |---|---|
 | [Quickstart](quickstart.md) | Run the demos; environment setup |
-| [Core Concepts](concepts.md) | Execution, coordination, and state — the three independent decisions |
-| [Orchestration Patterns](patterns.md) | SDK subagents, automations/reconciliation, parent-child, and event-driven handoff |
+| [Core Concepts](concepts.md) | Coordination, worker identity, runtime placement, implementation, and state — the five independent decisions |
+| [Orchestration Patterns](patterns.md) | Approach 1 (bounded delegation), Approach 2 (supervised lifecycle), Approach 3 (durable workflow), event-driven handoff |
 | [Working Examples](examples.md) | Runnable scripts and external reference projects |
 
 ## Repository at a Glance

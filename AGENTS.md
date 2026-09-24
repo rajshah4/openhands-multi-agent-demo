@@ -1,16 +1,16 @@
 # AGENTS.md — openhands-multi-agent-demo
 
-Practical examples of coordinating multiple OpenHands agents across three orthogonal decisions: where agents run (execution), who decides what happens next (coordination), and where workflow state survives (durable state).
+Practical examples of coordinating multiple OpenHands agents across five separate decisions: coordination ownership, worker identity, runtime placement, worker implementation, and where workflow state survives across runs.
 
 ## Repository Overview
 
-Three orchestration patterns are demonstrated:
+Three orchestration approaches are demonstrated:
 
-| Pattern | Entry point | When to use |
+| Approach | Entry point | When to use |
 |---|---|---|
-| SDK subagents + ACP | `shared_workspace.py` | Bounded specialist delegation inside one shared runtime |
-| Automations / reconciliation | `patterns/polling/orchestrate_once.py` | Ongoing backlog; work that spans hours or days |
-| Parent-child conversations | `patterns/parent-child/run_supervisor.py` | One bounded request needing separate audit records and human gates |
+| Approach 1: Bounded In-Conversation Delegation | `shared_workspace.py` | Bounded specialist delegation inside one shared runtime |
+| Approach 3A: Durable Asynchronous Workflow (reconciliation) | `patterns/polling/orchestrate_once.py` | Ongoing backlog; work that spans hours or days |
+| Approach 2: Bounded Supervised Lifecycle | `patterns/parent-child/run_supervisor.py` | One bounded request needing separate audit records and human gates |
 
 ## Quick Commands
 
@@ -42,7 +42,7 @@ python3 shared_workspace.py
 - `patterns/common/` — Enterprise and Canvas conversation adapters
 - `automations/implement-approved-spec/` — event-driven label → implement-spec → PR automation
 - `BEST_PRACTICES.md` — full operating guidance (state, capacity, validation, recovery, cleanup)
-- `docs/choosing-a-pattern.md` — decision guide: parent-child vs polling vs event-driven
+- `docs/choosing-a-pattern.md` — decision guide: choosing between Approach 1, 2, 3A/3B using control-boundary-first framing
 - `docs/agent-canvas-and-acp.md` — Agent Canvas runtime and ACP worker details
 - `.agents/skills/orchestrate-multi-agent-conversations/` — reusable orchestration skill
 
@@ -55,5 +55,5 @@ Both pattern scripts accept `--runtime canvas` to run on local Agent Canvas inst
 ## Autodocs
 
 - **Wiki:** [`openwiki/`](openwiki/)
-- **Last updated:** 2026-08-31 (source commit `da74194`)
+- **Last updated:** 2026-09-24 (source commit `a4acff7`)
 - **Maintained by:** [Autodocs](https://github.com/OpenHands/extensions) — edit `openwiki/` pages directly; update `.last-update.json` when source changes are documented.
