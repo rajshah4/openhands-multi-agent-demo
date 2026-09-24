@@ -1,0 +1,12 @@
+{
+  "last_update": "2026-09-24",
+  "source_commit": "a4acff7a91fce4910e7e37474e7a8eeebb7d824c",
+  "docs_version": "1.0.2",
+  "pages": [
+    "index.md",
+    "quickstart.md",
+    "concepts.md",
+    "patterns.md",
+    "examples.md"
+  ]
+}
