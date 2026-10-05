@@ -1,0 +1,14 @@
+{
+  "timestamp": "2026-10-05T14:01:16Z",
+  "git_hash": "a4acff7",
+  "git_branch": "main",
+  "autodocs_version": "1.0",
+  "docs_generated": [
+    "openwiki/index.md",
+    "openwiki/quickstart.md",
+    "openwiki/choosing-a-pattern.md",
+    "openwiki/architecture-patterns.md",
+    "openwiki/api-reference.md"
+  ],
+  "notes": "Initial autodocs generation for multi-agent orchestration repository"
+}
